@@ -75,6 +75,25 @@
   .ou { text-align:center; color:#888; font-size:.8rem; margin:16px 0 10px; }
   .social-btn { width:100%; padding:12px; border:2px solid var(--noir); background:var(--blanc); color:var(--noir); font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:.85rem; }
   .social-btn:hover { border-color:var(--orange); }
+  .catalogue { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:640px; margin:0 auto; }
+  .fiche .photo { height:170px; overflow:hidden; }
+  .fiche .photo img { width:100%; height:100%; object-fit:cover; }
+  .fiche .btn.petit { width:100%; margin-top:8px; padding:9px; font-size:.75rem; }
+  .filtre { text-align:center; margin-bottom:14px; font-size:.85rem; }
+  .lien-filtre { text-decoration:underline; cursor:pointer; color:var(--orange); }
+  #panier-fond { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:20; align-items:center; justify-content:center; padding:16px; }
+  #panier-fond.open { display:flex; }
+  .compte { max-height:90vh; overflow-y:auto; }
+  .ligne-panier { display:flex; align-items:center; gap:8px; padding:8px 0; border-bottom:1px solid var(--bord); font-size:.85rem; }
+  .nom-l { flex:1; }
+  .qte-l button { width:26px; height:26px; border:1px solid #ccc; background:#fff; cursor:pointer; }
+  .qte-l b { margin:0 8px; }
+  .total-l { font-weight:bold; margin:12px 0; }
+  .option-paiement { display:block; margin:8px 0; font-size:.85rem; }
+  .grise { color:#999; }
+  #panier-msg { font-size:.85rem; margin-top:12px; text-align:center; }
+  #panier-msg.err { color:#c0392b; }
+  #btn-panier sup { color:var(--orange); font-weight:bold; font-size:.7rem; }
 </style>
 </head>
 <body>
@@ -83,7 +102,7 @@
 
 <header>
   <div class="logo">URBAN<span>DRIP</span></div>
-  <div class="icones"><span>🔍</span><span>♡</span><span id="btn-compte" style="cursor:pointer">👤</span><span>🛍</span></div>
+  <div class="icones"><span>🔍</span><span>♡</span><span id="btn-compte" style="cursor:pointer">👤</span><span id="btn-panier" style="cursor:pointer">🛍<sup id="nb-panier"></sup></span></div>
 </header>
 
 <nav>
@@ -107,21 +126,17 @@
 <section id="categories">
   <h2>Shop par <span>catégorie</span></h2>
   <div class="cats">
-    <a class="cat" href="#nouveautes"><span class="ico">👕</span>Vêtements</a>
-    <a class="cat" href="#nouveautes"><span class="ico">👟</span>Chaussures</a>
-    <a class="cat" href="#nouveautes"><span class="ico">💍</span>Bijoux</a>
-    <a class="cat" href="#nouveautes"><span class="ico">📿</span>Bracelets</a>
+    <a class="cat" href="#nouveautes" data-cat="vetements"><span class="ico">👕</span>Vêtements</a>
+    <a class="cat" href="#nouveautes" data-cat="chaussures"><span class="ico">👟</span>Chaussures</a>
+    <a class="cat" href="#nouveautes" data-cat="bijoux"><span class="ico">💍</span>Bijoux</a>
+    <a class="cat" href="#nouveautes" data-cat="bracelets"><span class="ico">📿</span>Bracelets</a>
   </div>
 </section>
 
 <section id="nouveautes">
   <h2>Nou<span>veautés</span></h2>
-  <div class="rail">
-    <div class="produit"><div class="photo">👕<span class="badge">NEW</span><span class="coeur">♡</span></div><div class="infos">Hoodie exemple<div class="prix">— €</div></div></div>
-    <div class="produit"><div class="photo">👟<span class="badge">NEW</span><span class="coeur">♡</span></div><div class="infos">Sneakers exemple<div class="prix">— €</div></div></div>
-    <div class="produit"><div class="photo">📿<span class="coeur">♡</span></div><div class="infos">Bracelet exemple<div class="prix">— €</div></div></div>
-    <div class="produit"><div class="photo">💍<span class="coeur">♡</span></div><div class="infos">Bague exemple<div class="prix">— €</div></div></div>
-  </div>
+  <p class="filtre" id="filtre-info"></p>
+  <div class="catalogue" id="liste-produits">Chargement…</div>
 </section>
 
 <div class="bande" id="team">
@@ -169,6 +184,16 @@
       <div id="social" style="display:none"><div class="ou">ou</div><div id="boutons-social"></div></div>
     </div>
     <div id="compte-msg"></div>
+  </div>
+</div>
+
+<div id="panier-fond">
+  <div class="compte">
+    <span class="fermer" id="panier-fermer">×</span>
+    <h3>Mon panier</h3>
+    <div id="panier-lignes"></div>
+    <div id="panier-bas"></div>
+    <div id="panier-msg"></div>
   </div>
 </div>
 
@@ -284,6 +309,151 @@
     db.auth.getSession().then(function (r) { afficherSession(r.data.session); });
     db.auth.onAuthStateChange(function (evt, session) { afficherSession(session); });
   }
+
+  // ===== Catalogue, panier et commande =====
+  var EMOJIS = { vetements: '👕', chaussures: '👟', bijoux: '💍', bracelets: '📿' };
+  var NOMS_CAT = { vetements: 'Vêtements', chaussures: 'Chaussures', bijoux: 'Bijoux', bracelets: 'Bracelets' };
+  var produits = [];
+  var filtre = null;
+  var panier = {};
+  var utilisateur = null;
+  try { panier = JSON.parse(localStorage.getItem('ud_panier') || '{}') || {}; } catch (e) { panier = {}; }
+
+  function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
+  function sauverPanier() { try { localStorage.setItem('ud_panier', JSON.stringify(panier)); } catch (e) {} }
+  function fcfa(n) { return Number(n).toLocaleString('fr-FR') + ' FCFA'; }
+  function lignes() {
+    var out = [];
+    produits.forEach(function (p) { var q = panier[p.id]; if (q > 0) out.push({ p: p, qte: q }); });
+    return out;
+  }
+  function totalPanier() { return lignes().reduce(function (t, l) { return t + l.p.prix * l.qte; }, 0); }
+  function nbArticles() { return lignes().reduce(function (n, l) { return n + l.qte; }, 0); }
+  function majBadge() { var n = nbArticles(); $('nb-panier').textContent = n ? ' ' + n : ''; }
+  function ajouter(id) { panier[id] = (panier[id] || 0) + 1; sauverPanier(); majBadge(); }
+  function changer(id, d) {
+    var q = (panier[id] || 0) + d;
+    if (q <= 0) { delete panier[id]; } else { panier[id] = q; }
+    sauverPanier(); majBadge(); dessinerPanier();
+  }
+
+  function afficherProduits() {
+    var zone = $('liste-produits');
+    zone.textContent = '';
+    var info = $('filtre-info');
+    info.textContent = '';
+    if (filtre) {
+      info.appendChild(document.createTextNode(NOMS_CAT[filtre] + ' · '));
+      var a = el('a', 'lien-filtre', 'Tout afficher');
+      a.addEventListener('click', function () { filtre = null; afficherProduits(); });
+      info.appendChild(a);
+    }
+    var liste = produits.filter(function (p) { return !filtre || p.categorie === filtre; });
+    if (!liste.length) { zone.textContent = produits.length ? 'Aucun produit dans cette catégorie.' : 'Les produits arrivent bientôt.'; return; }
+    liste.forEach(function (p) {
+      var c = el('div', 'fiche');
+      var ph = el('div', 'photo');
+      if (p.image_url && p.image_url.indexOf('https://') === 0) { var im = el('img'); im.src = p.image_url; im.alt = p.nom; ph.appendChild(im); }
+      else { ph.textContent = EMOJIS[p.categorie] || '🛍'; }
+      var inf = el('div', 'infos', p.nom);
+      inf.appendChild(el('div', 'prix', fcfa(p.prix)));
+      var b = el('button', 'btn petit', 'Ajouter');
+      b.addEventListener('click', function () { ajouter(p.id); });
+      c.appendChild(ph); c.appendChild(inf); c.appendChild(b);
+      zone.appendChild(c);
+    });
+  }
+
+  async function chargerProduits() {
+    if (!db) { $('liste-produits').textContent = 'Catalogue indisponible pour le moment.'; return; }
+    var r = await db.from('produits').select('id,nom,prix,categorie,image_url').order('cree_le', { ascending: false });
+    if (r.error) { $('liste-produits').textContent = 'Impossible de charger les produits.'; return; }
+    produits = r.data || [];
+    afficherProduits(); majBadge();
+  }
+
+  function dessinerPanier() {
+    var zl = $('panier-lignes'), zb = $('panier-bas');
+    zl.textContent = ''; zb.textContent = '';
+    var L = lignes();
+    if (!L.length) { zl.appendChild(el('p', '', 'Ton panier est vide.')); return; }
+    L.forEach(function (l) {
+      var row = el('div', 'ligne-panier');
+      row.appendChild(el('span', 'nom-l', l.p.nom));
+      var qte = el('span', 'qte-l');
+      var moins = el('button', '', '−'); moins.addEventListener('click', function () { changer(l.p.id, -1); });
+      var plus = el('button', '', '+'); plus.addEventListener('click', function () { changer(l.p.id, 1); });
+      qte.appendChild(moins); qte.appendChild(el('b', '', String(l.qte))); qte.appendChild(plus);
+      row.appendChild(qte);
+      row.appendChild(el('span', 'prix-l', fcfa(l.p.prix * l.qte)));
+      zl.appendChild(row);
+    });
+    zb.appendChild(el('p', 'total-l', 'Total : ' + fcfa(totalPanier())));
+    if (!utilisateur) {
+      zb.appendChild(el('p', '', 'Connecte-toi pour passer commande.'));
+      var bc = el('button', 'btn', 'Me connecter');
+      bc.addEventListener('click', function () { fermerPanier(); ouvrir(); });
+      zb.appendChild(bc);
+      return;
+    }
+    var tel = el('input'); tel.id = 'cmd-tel'; tel.type = 'tel'; tel.placeholder = 'Ton numéro de téléphone';
+    var adr = el('input'); adr.id = 'cmd-adr'; adr.type = 'text'; adr.placeholder = 'Adresse de livraison';
+    zb.appendChild(tel); zb.appendChild(adr);
+    var o1 = el('label', 'option-paiement'); var r1 = el('input'); r1.type = 'radio'; r1.name = 'paiement'; r1.checked = true;
+    o1.appendChild(r1); o1.appendChild(document.createTextNode(' Mobile money (Wave / Orange Money)'));
+    var o2 = el('label', 'option-paiement grise'); var r2 = el('input'); r2.type = 'radio'; r2.name = 'paiement'; r2.disabled = true;
+    o2.appendChild(r2); o2.appendChild(document.createTextNode(' Paiement automatique CinetPay (bientôt)'));
+    zb.appendChild(o1); zb.appendChild(o2);
+    var bv = el('button', 'btn', 'Passer la commande');
+    bv.addEventListener('click', commander);
+    zb.appendChild(bv);
+  }
+
+  async function commander() {
+    var m = $('panier-msg');
+    var tel = $('cmd-tel').value.trim(), adr = $('cmd-adr').value.trim();
+    if (tel.length < 8 || adr.length < 5) { m.textContent = 'Entre ton téléphone et ton adresse.'; m.className = 'err'; return; }
+    var L = lignes();
+    if (!L.length || !db) return;
+    var total = totalPanier();
+    var articles = L.map(function (l) { return { id: l.p.id, nom: l.p.nom, prix: l.p.prix, qte: l.qte }; });
+    var r = await db.from('commandes').insert({ articles: articles, total: total, telephone: tel, adresse: adr, mode_paiement: 'mobile_money_manuel' }).select('id').single();
+    if (r.error) { m.textContent = 'La commande a échoué : ' + r.error.message; m.className = 'err'; return; }
+    panier = {}; sauverPanier(); majBadge();
+    confirmation(r.data.id, total);
+  }
+
+  function confirmation(id, total) {
+    var z = $('panier-lignes');
+    z.textContent = ''; $('panier-bas').textContent = ''; $('panier-msg').textContent = ''; $('panier-msg').className = '';
+    z.appendChild(el('p', 'total-l', 'Commande n°' + id + ' enregistrée ✅'));
+    z.appendChild(el('p', '', 'Pour la valider, envoie ' + fcfa(total) + ' par mobile money en indiquant le numéro de commande ' + id + ' en référence.'));
+    var wave = (typeof NUMERO_WAVE === 'string') ? NUMERO_WAVE : '';
+    var om = (typeof NUMERO_ORANGE === 'string') ? NUMERO_ORANGE : '';
+    if (wave) z.appendChild(el('p', '', 'Wave : ' + wave));
+    if (om) z.appendChild(el('p', '', 'Orange Money : ' + om));
+    if (!wave && !om) z.appendChild(el('p', '', 'Nous te contacterons au numéro indiqué pour finaliser le paiement.'));
+    z.appendChild(el('p', '', 'Ta commande sera préparée dès la réception du paiement.'));
+  }
+
+  function ouvrirPanier() { $('panier-fond').classList.add('open'); $('panier-msg').textContent = ''; dessinerPanier(); }
+  function fermerPanier() { $('panier-fond').classList.remove('open'); }
+
+  document.querySelectorAll('.cat').forEach(function (a) {
+    a.addEventListener('click', function () { filtre = a.getAttribute('data-cat'); afficherProduits(); });
+  });
+  $('btn-panier').addEventListener('click', ouvrirPanier);
+  $('panier-fermer').addEventListener('click', fermerPanier);
+  $('panier-fond').addEventListener('click', function (e) { if (e.target === $('panier-fond')) fermerPanier(); });
+
+  if (db) {
+    db.auth.getSession().then(function (r) { utilisateur = r.data.session ? r.data.session.user : null; });
+    db.auth.onAuthStateChange(function (evt, session) {
+      utilisateur = session ? session.user : null;
+      if ($('panier-fond').classList.contains('open')) dessinerPanier();
+    });
+  }
+  chargerProduits();
 </script>
 </body>
 </html>
