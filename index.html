@@ -14,7 +14,7 @@
   header { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; background:var(--blanc); position:sticky; top:0; z-index:5; border-bottom:1px solid var(--bord); }
   .logo { font-size:1.4rem; font-weight:900; letter-spacing:2px; }
   .logo span { color:var(--orange); }
-  .icones { font-size:1.2rem; display:flex; gap:14px; }
+  .icones { font-size:1.2rem; display:flex; gap:14px; align-items:center; white-space:nowrap; }
   nav { display:flex; gap:22px; overflow-x:auto; padding:12px 18px; border-bottom:1px solid var(--bord); white-space:nowrap; font-size:.85rem; font-weight:bold; text-transform:uppercase; }
   nav a:hover { color:var(--orange); }
   .hero { background:var(--gris); padding:60px 20px; text-align:center; position:relative; overflow:hidden; }
@@ -215,7 +215,7 @@
     if (user) {
       var prenom = (user.user_metadata && user.user_metadata.prenom) ? user.user_metadata.prenom : user.email;
       $('bonjour').textContent = 'Salut ' + prenom + ' 👋';
-      $('btn-compte').textContent = '👤 ' + prenom;
+      $('btn-compte').textContent = '👤 ' + prenom.split(' ')[0];
     } else {
       $('btn-compte').textContent = '👤';
     }
