@@ -5,3 +5,5 @@ var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSI
 // Connexions sociales actives. Ajoute 'facebook' ou 'apple' quand elles sont prêtes dans Supabase.
 // Exemple : var FOURNISSEURS = ['google', 'facebook'];
 var FOURNISSEURS = ['google'];
+var NUMERO_WAVE = '0152656299';
+var NUMERO_ORANGE = '0758328409';
