@@ -72,6 +72,9 @@
   #compte-msg { font-size:.85rem; margin-top:12px; text-align:center; min-height:1.2em; }
   #compte-msg.ok { color:#1a7f37; }
   #compte-msg.err { color:#c0392b; }
+  .ou { text-align:center; color:#888; font-size:.8rem; margin:16px 0 10px; }
+  .social-btn { width:100%; padding:12px; border:2px solid var(--noir); background:var(--blanc); color:var(--noir); font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:.85rem; }
+  .social-btn:hover { border-color:var(--orange); }
 </style>
 </head>
 <body>
@@ -163,6 +166,7 @@
       <input type="password" id="champ-mdp" placeholder="Mot de passe (8 caractères min.)" autocomplete="current-password">
       <button class="btn" id="btn-valider">Se connecter</button>
       <a class="lien" id="lien-oubli">Mot de passe oublié ?</a>
+      <div id="social" style="display:none"><div class="ou">ou</div><div id="boutons-social"></div></div>
     </div>
     <div id="compte-msg"></div>
   </div>
@@ -177,17 +181,17 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
 <script>
   document.getElementById('chat-btn').addEventListener('click', function () {
     document.getElementById('chat-box').classList.toggle('open');
   });
 
   // ===== Comptes clients (Supabase) =====
-  var SUPABASE_URL = 'https://aqckoajqgswpkvqdajii.supabase.co';
-  var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxY2tvYWpxZ3N3cGt2cWRhamlpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTIxNDA5NjcsImV4cCI6MjEwNzcxNjk2N30.tEMo31NFbo7JWiaZHD9acyfyWU9Qtph4zvLXrrgzgQM';
+  // L'URL, la clé et les connexions sociales se règlent dans config.js
   var db = null;
   try {
-    if (SUPABASE_URL.indexOf('http') === 0) { db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
+    if (typeof SUPABASE_URL === 'string' && SUPABASE_URL.indexOf('http') === 0) { db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY); }
   } catch (e) { db = null; }
 
   var $ = function (id) { return document.getElementById(id); };
@@ -248,6 +252,23 @@
     var r = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
     if (r.error) { message(r.error.message, 'err'); return; }
     message('E-mail envoyé : suis le lien pour choisir un nouveau mot de passe.', 'ok');
+  }
+
+  var NOMS = { google: 'Continuer avec Google', facebook: 'Continuer avec Facebook', apple: 'Continuer avec iCloud (Apple)' };
+  var actifs = (typeof FOURNISSEURS !== 'undefined' && FOURNISSEURS) ? FOURNISSEURS : [];
+  if (db && actifs.length) {
+    $('social').style.display = 'block';
+    actifs.forEach(function (nom) {
+      if (!NOMS[nom]) return;
+      var b = document.createElement('button');
+      b.className = 'social-btn';
+      b.textContent = NOMS[nom];
+      b.addEventListener('click', async function () {
+        var r = await db.auth.signInWithOAuth({ provider: nom, options: { redirectTo: window.location.href } });
+        if (r.error) { message(r.error.message, 'err'); }
+      });
+      $('boutons-social').appendChild(b);
+    });
   }
 
   $('btn-compte').addEventListener('click', ouvrir);
