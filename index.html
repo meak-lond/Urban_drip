@@ -169,7 +169,7 @@
   #menu .btn:hover { background:#333; border-color:#333; color:var(--blanc); }
   #menu .btn.clair:hover { background:var(--noir); border-color:var(--noir); color:var(--blanc); }
   .m-ligne:hover, .m-reseaux a:hover { background:#e4e4e4; }
-  #cookies { position:fixed; left:12px; right:12px; bottom:12px; max-width:520px; margin:0 auto; background:var(--noir); color:var(--blanc); padding:18px 18px calc(18px + env(safe-area-inset-bottom, 0px)); z-index:40; font-size:.85rem; line-height:1.5; box-shadow:0 8px 30px rgba(0,0,0,.35); transform:translateY(160%); transition:transform .5s ease; }
+  #cookies { position:fixed; left:12px; right:12px; bottom:12px; max-width:520px; margin:0 auto; background:var(--noir); color:var(--blanc); padding:18px 18px calc(18px + env(safe-area-inset-bottom, 0px)); z-index:18; font-size:.85rem; line-height:1.5; box-shadow:0 8px 30px rgba(0,0,0,.35); transform:translateY(160%); transition:transform .5s ease; }
   #cookies.visible { transform:none; }
   .cookies-btns { display:flex; gap:10px; margin-top:12px; }
   #cookies .btn { flex:1; padding:11px; font-size:.75rem; background:var(--blanc); color:var(--noir); border-color:var(--blanc); }
@@ -489,7 +489,7 @@
       var prenom = $('champ-prenom').value.trim();
       if (!prenom) { message('Entre ton prénom.', 'err'); return; }
       if (mdp.length < 8) { message('Le mot de passe doit faire 8 caractères minimum.', 'err'); return; }
-      var r = await db.auth.signUp({ email: email, password: mdp, options: { data: { prenom: prenom }, emailRedirectTo: window.location.href } });
+      var r = await db.auth.signUp({ email: email, password: mdp, options: { data: { prenom: prenom }, emailRedirectTo: (window.location.origin + window.location.pathname) } });
       if (r.error) { message(r.error.message, 'err'); return; }
       if (r.data.session) { message('Compte créé, bienvenue dans la team !', 'ok'); }
       else { message('Compte créé ! Vérifie ta boîte mail pour confirmer ton adresse.', 'ok'); }
@@ -504,7 +504,7 @@
     if (!db) { message('Le site n\'est pas encore relié à Supabase.', 'err'); return; }
     var email = $('champ-email').value.trim();
     if (!email) { message('Entre ton e-mail puis reclique sur le lien.', 'err'); return; }
-    var r = await db.auth.resetPasswordForEmail(email, { redirectTo: window.location.href });
+    var r = await db.auth.resetPasswordForEmail(email, { redirectTo: (window.location.origin + window.location.pathname) });
     if (r.error) { message(r.error.message, 'err'); return; }
     message('E-mail envoyé : suis le lien pour choisir un nouveau mot de passe.', 'ok');
   }
@@ -519,7 +519,7 @@
       b.className = 'social-btn';
       b.textContent = NOMS[nom];
       b.addEventListener('click', async function () {
-        var r = await db.auth.signInWithOAuth({ provider: nom, options: { redirectTo: window.location.href } });
+        var r = await db.auth.signInWithOAuth({ provider: nom, options: { redirectTo: (window.location.origin + window.location.pathname) } });
         if (r.error) { message(r.error.message, 'err'); }
       });
       $('boutons-social').appendChild(b);
