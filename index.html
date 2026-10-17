@@ -239,6 +239,29 @@
   .chat-saisie input { flex:1; min-width:0; border:none; padding:14px; font-size:16px; font-family:inherit; outline:none; }
   .chat-saisie button { background:var(--noir); border:none; width:52px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
   .chat-saisie .ic { stroke:#fff; width:20px; height:20px; }
+  #options-fond { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:26; align-items:flex-end; }
+  #options-fond.open { display:flex; }
+  .feuille { background:#fff; width:100%; padding:22px 20px calc(24px + env(safe-area-inset-bottom, 0px)); position:relative; max-height:85vh; overflow-y:auto; animation:monte .25s ease; }
+  .fermer-f { position:absolute; top:8px; right:12px; font-size:1.8rem; cursor:pointer; line-height:1; }
+  .feuille h3 { text-transform:uppercase; font-size:1rem; letter-spacing:1px; margin-bottom:4px; padding-right:34px; }
+  .feuille .prix { font-weight:800; margin-bottom:6px; }
+  .feuille .btn { width:100%; margin-top:6px; }
+  .art { display:flex; gap:16px; padding:18px 0; border-bottom:1px solid var(--bord); }
+  .art-photo { flex:0 0 120px; height:155px; background:var(--gris); display:flex; align-items:center; justify-content:center; font-size:2.6rem; overflow:hidden; }
+  .art-photo img { width:100%; height:100%; object-fit:cover; }
+  .art-infos { flex:1; min-width:0; font-size:.85rem; }
+  .art-marque { font-size:.8rem; color:#555; }
+  .art-nom { font-weight:600; text-transform:uppercase; }
+  .art-prix { font-weight:800; margin:2px 0 8px; }
+  .art-det { display:grid; grid-template-columns:auto 1fr; gap:2px 12px; font-size:.8rem; color:#555; }
+  .art-det .v { color:var(--noir); }
+  .art-qte { display:inline-flex; align-items:center; border:1px solid var(--noir); margin-top:12px; }
+  .art-qte button { background:none; border:none; width:44px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--noir); }
+  .art-qte .ic { width:20px; height:20px; }
+  .art-qte span { min-width:30px; text-align:center; font-weight:600; }
+  .res { display:flex; justify-content:space-between; padding:6px 0; font-size:.9rem; }
+  .res.gras { font-weight:800; font-size:1rem; margin:8px 0 18px; }
+  #panier-bas .btn { width:100%; margin-bottom:10px; }
 </style>
 </head>
 <body>
@@ -264,6 +287,8 @@
   <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
   <symbol id="i-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></symbol>
 </svg>
 
 <div class="annonce"><span class="defile">Livraison internationale · <b>Paiement sécurisé</b> · Rejoins la team Urban Drip</span></div>
@@ -438,6 +463,13 @@
   </div>
 </div>
 
+<div id="options-fond">
+  <div class="feuille">
+    <span class="fermer-f" id="options-fermer" role="button" aria-label="Fermer">×</span>
+    <div id="options-corps"></div>
+  </div>
+</div>
+
 <div id="panier-fond">
   <div class="compte">
     <span class="fermer" id="panier-fermer">×</span>
@@ -578,20 +610,56 @@
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
   function sauverPanier() { try { localStorage.setItem('ud_panier', JSON.stringify(panier)); } catch (e) {} }
   function fcfa(n) { return Number(n).toLocaleString('fr-FR') + ' FCFA'; }
+  function cle(id, taille, couleur) { return id + '|' + (taille || '') + '|' + (couleur || ''); }
   function lignes() {
     var out = [];
-    produits.forEach(function (p) { var q = panier[p.id]; if (q > 0) out.push({ p: p, qte: q }); });
+    Object.keys(panier).forEach(function (k) {
+      var q = panier[k];
+      if (!(q > 0)) { return; }
+      var parts = String(k).split('|');
+      var p = produits.filter(function (x) { return String(x.id) === parts[0]; })[0];
+      if (p) { out.push({ p: p, qte: q, taille: parts[1] || '', couleur: parts[2] || '', cle: k }); }
+    });
     return out;
   }
   function totalPanier() { return lignes().reduce(function (t, l) { return t + l.p.prix * l.qte; }, 0); }
   function nbArticles() { return lignes().reduce(function (n, l) { return n + l.qte; }, 0); }
   function majBadge() { var n = nbArticles(); $('nb-panier').textContent = n ? String(n) : ''; }
-  function ajouter(id) { panier[id] = (panier[id] || 0) + 1; sauverPanier(); majBadge(); }
-  function changer(id, d) {
-    var q = (panier[id] || 0) + d;
-    if (q <= 0) { delete panier[id]; } else { panier[id] = q; }
+  function ajouter(id, taille, couleur) { var k = cle(id, taille, couleur); panier[k] = (panier[k] || 0) + 1; sauverPanier(); majBadge(); }
+  function changer(k, d) {
+    var q = (panier[k] || 0) + d;
+    if (q <= 0) { delete panier[k]; } else { panier[k] = q; }
     sauverPanier(); majBadge(); dessinerPanier();
   }
+  function fraisLivraison() { return (typeof FRAIS_LIVRAISON === 'number') ? FRAIS_LIVRAISON : null; }
+
+  function choisirOptions(p, apres) {
+    var t = p.tailles || [], c = p.couleurs || [];
+    if (!t.length && !c.length) { ajouter(p.id); if (apres) { apres(); } return; }
+    var f = $('options-corps'); f.textContent = '';
+    f.appendChild(el('h3', '', p.nom)); f.appendChild(el('p', 'prix', fcfa(p.prix)));
+    function liste(titre, valeurs, invite) {
+      f.appendChild(el('span', 'lbl', titre));
+      var sel = el('select', 'esp-champ');
+      var o0 = el('option', '', invite); o0.value = ''; sel.appendChild(o0);
+      valeurs.forEach(function (v) { var o = el('option', '', v); o.value = v; sel.appendChild(o); });
+      f.appendChild(sel); return sel;
+    }
+    var st = t.length ? liste('Taille', t, 'Choisis ta taille') : null;
+    var sc = c.length ? liste('Couleur', c, 'Choisis ta couleur') : null;
+    var etat = el('p', 'esp-etat err'), ok = el('button', 'btn', 'Ajouter au panier');
+    ok.addEventListener('click', function () {
+      if (st && !st.value) { etat.textContent = 'Choisis ta taille.'; return; }
+      if (sc && !sc.value) { etat.textContent = 'Choisis ta couleur.'; return; }
+      ajouter(p.id, st ? st.value : '', sc ? sc.value : '');
+      $('options-fond').classList.remove('open');
+      if (apres) { apres(); }
+    });
+    f.appendChild(ok); f.appendChild(etat);
+    $('options-fond').classList.add('open');
+  }
+  $('options-fermer').addEventListener('click', function () { $('options-fond').classList.remove('open'); });
+  $('options-fond').addEventListener('click', function (e) { if (e.target === $('options-fond')) { $('options-fond').classList.remove('open'); } });
 
   var terme = '';
   var observe = ('IntersectionObserver' in window) ? new IntersectionObserver(function (entrees) {
@@ -610,7 +678,7 @@
     if (p.en_promo && p.ancien_prix) { pr.appendChild(el('s', 'ancien', fcfa(p.ancien_prix))); }
     inf.appendChild(pr);
     var b = el('button', 'btn petit', 'Ajouter');
-    b.addEventListener('click', function () { ajouter(p.id); });
+    b.addEventListener('click', function () { choisirOptions(p); });
     c.appendChild(ph); c.appendChild(inf); c.appendChild(b);
     reveler(c);
     return c;
@@ -655,9 +723,16 @@
 
   async function chargerProduits() {
     if (!db) { $('rail-nouveautes').textContent = 'Catalogue indisponible pour le moment.'; return; }
-    var tri = { ascending: false };
-    var r = await db.from('produits').select('id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix').order('cree_le', tri);
-    if (r.error) { r = await db.from('produits').select('id,nom,prix,categorie,image_url').order('cree_le', tri); }
+    var colonnes = [
+      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs',
+      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix',
+      'id,nom,prix,categorie,image_url'
+    ];
+    var r = null;
+    for (var i = 0; i < colonnes.length; i++) {
+      r = await db.from('produits').select(colonnes[i]).order('cree_le', { ascending: false });
+      if (!r.error) { break; }
+    }
     if (r.error) { $('rail-nouveautes').textContent = 'Impossible de charger les produits.'; return; }
     produits = r.data || [];
     afficherProduits(); majBadge();
@@ -669,26 +744,45 @@
     var L = lignes();
     if (!L.length) { zl.appendChild(el('p', '', 'Ton panier est vide.')); return; }
     L.forEach(function (l) {
-      var row = el('div', 'ligne-panier');
-      row.appendChild(el('span', 'nom-l', l.p.nom));
-      var qte = el('span', 'qte-l');
-      var moins = el('button', '', '−'); moins.addEventListener('click', function () { changer(l.p.id, -1); });
-      var plus = el('button', '', '+'); plus.addEventListener('click', function () { changer(l.p.id, 1); });
-      qte.appendChild(moins); qte.appendChild(el('b', '', String(l.qte))); qte.appendChild(plus);
-      row.appendChild(qte);
-      row.appendChild(el('span', 'prix-l', fcfa(l.p.prix * l.qte)));
-      zl.appendChild(row);
+      var row = el('div', 'art');
+      var ph = el('div', 'art-photo');
+      if (l.p.image_url && l.p.image_url.indexOf('https://') === 0) { var im = el('img'); im.src = l.p.image_url; im.alt = l.p.nom; ph.appendChild(im); }
+      else { ph.textContent = EMOJIS[l.p.categorie] || '🛍'; }
+      var inf = el('div', 'art-infos');
+      inf.appendChild(el('div', 'art-marque', 'Urban Drip'));
+      inf.appendChild(el('div', 'art-nom', l.p.nom));
+      inf.appendChild(el('div', 'art-prix', fcfa(l.p.prix)));
+      var det = el('div', 'art-det');
+      [['Réf. Art.', 'UD-' + ('000000' + l.p.id).slice(-6)], ['Couleur', l.couleur], ['Taille', l.taille], ['Quantité', String(l.qte)], ['Total', fcfa(l.p.prix * l.qte)]].forEach(function (d) {
+        if (!d[1]) { return; }
+        det.appendChild(el('span', 'k', d[0])); det.appendChild(el('span', 'v', d[1]));
+      });
+      inf.appendChild(det);
+      var qt = el('div', 'art-qte');
+      var moins = el('button'); moins.appendChild(icone(l.qte > 1 ? 'minus' : 'trash')); moins.setAttribute('aria-label', l.qte > 1 ? 'Moins' : 'Supprimer');
+      moins.addEventListener('click', function () { changer(l.cle, -1); });
+      var plus = el('button'); plus.appendChild(icone('plus')); plus.setAttribute('aria-label', 'Plus');
+      plus.addEventListener('click', function () { changer(l.cle, 1); });
+      qt.appendChild(moins); qt.appendChild(el('span', '', String(l.qte))); qt.appendChild(plus);
+      inf.appendChild(qt);
+      row.appendChild(ph); row.appendChild(inf); zl.appendChild(row);
     });
-    zb.appendChild(el('p', 'total-l', 'Total : ' + fcfa(totalPanier())));
+    var valeur = totalPanier(), frais = fraisLivraison();
+    function resume(a, b, gras) {
+      var d = el('div', gras ? 'res gras' : 'res'); d.appendChild(el('span', '', a)); d.appendChild(el('span', '', b)); zb.appendChild(d);
+    }
+    resume('Valeur de la commande', fcfa(valeur));
+    resume('Frais de livraison estimés', frais === null ? 'À confirmer' : fcfa(frais));
+    resume('Total de la commande :', fcfa(valeur + (frais || 0)), true);
     if (!commandesOuvertes()) {
-      zb.appendChild(el('p', '', 'Les commandes ouvrent bientôt. Garde ton panier : tu pourras commander dès l\'ouverture.'));
+      zb.appendChild(el('p', '', "Les commandes ouvrent bientôt. Garde ton panier : tu pourras commander dès l'ouverture."));
       return;
     }
     if (!utilisateur) {
-      zb.appendChild(el('p', '', 'Connecte-toi pour passer commande.'));
-      var bc = el('button', 'btn', 'Me connecter');
-      bc.addEventListener('click', function () { fermerPanier(); ouvrir(); });
-      zb.appendChild(bc);
+      var seConnecter = function () { fermerPanier(); ouvrir(); };
+      var bc = el('button', 'btn clair', 'Connexion'); bc.addEventListener('click', seConnecter);
+      var bt = el('button', 'btn', 'Terminer ma commande'); bt.addEventListener('click', seConnecter);
+      zb.appendChild(bc); zb.appendChild(bt);
       return;
     }
     if (profilOk === false) {
@@ -707,7 +801,7 @@
     var o2 = el('label', 'option-paiement grise'); var r2 = el('input'); r2.type = 'radio'; r2.name = 'paiement'; r2.disabled = true;
     o2.appendChild(r2); o2.appendChild(document.createTextNode(' Paiement automatique CinetPay (bientôt)'));
     zb.appendChild(o1); zb.appendChild(o2);
-    var bv = el('button', 'btn', 'Passer la commande');
+    var bv = el('button', 'btn', 'Terminer ma commande');
     bv.addEventListener('click', commander);
     zb.appendChild(bv);
   }
@@ -719,8 +813,8 @@
     if (tel.length < 8 || adr.length < 5) { m.textContent = 'Entre ton téléphone et ton adresse.'; m.className = 'err'; return; }
     var L = lignes();
     if (!L.length || !db) return;
-    var total = totalPanier();
-    var articles = L.map(function (l) { return { id: l.p.id, nom: l.p.nom, prix: l.p.prix, qte: l.qte }; });
+    var total = totalPanier() + (fraisLivraison() || 0);
+    var articles = L.map(function (l) { return { id: l.p.id, nom: l.p.nom, prix: l.p.prix, qte: l.qte, taille: l.taille, couleur: l.couleur }; });
     var r = await db.from('commandes').insert({ articles: articles, total: total, telephone: tel, adresse: adr, mode_paiement: 'mobile_money_manuel' }).select('id').single();
     if (r.error) { m.textContent = 'La commande a échoué : ' + r.error.message; m.className = 'err'; return; }
     panier = {}; sauverPanier(); majBadge();
@@ -907,7 +1001,7 @@
       row.appendChild(el('span', 'nom-l', 'Commande n°' + o.id + ' · ' + new Date(o.cree_le).toLocaleDateString('fr-FR')));
       row.appendChild(el('span', 'prix-l', fcfa(o.total)));
       z.appendChild(row);
-      var det = (o.articles || []).map(function (a) { return a.qte + ' × ' + a.nom; }).join(', ');
+      var det = (o.articles || []).map(function (a) { return a.qte + ' × ' + a.nom + (a.taille ? ' (' + a.taille + ')' : ''); }).join(', ');
       z.appendChild(el('p', 'statut', (STATUTS[o.statut] || o.statut) + (det ? ' · ' + det : '')));
     });
   }
@@ -1112,7 +1206,7 @@
     liste.slice(0, 4).forEach(function (p) {
       var b = bulle(p.nom + ' · ' + fcfa(p.prix) + (p.en_promo ? ' (promo)' : ''));
       var ajout = el('button', 'chip', 'Ajouter au panier');
-      ajout.addEventListener('click', function () { ajouter(p.id); ajout.textContent = 'Ajouté'; ajout.disabled = true; });
+      ajout.addEventListener('click', function () { choisirOptions(p, function () { ajout.textContent = 'Ajouté'; ajout.disabled = true; }); });
       b.appendChild(el('br')); b.appendChild(ajout);
     });
   }
