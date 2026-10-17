@@ -79,7 +79,7 @@
   .social-btn { width:100%; padding:12px; border:2px solid var(--noir); background:var(--blanc); color:var(--noir); font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:.85rem; }
   .social-btn:hover { border-color:var(--vert); }
   .catalogue { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:640px; margin:0 auto; }
-  .fiche .photo { height:170px; overflow:hidden; }
+  .fiche .photo { aspect-ratio:4/5; height:auto; overflow:hidden; }
   .fiche .photo img { width:100%; height:100%; object-fit:cover; }
   .fiche .btn.petit { width:100%; margin-top:8px; padding:9px; font-size:.75rem; }
   .filtre { text-align:center; margin-bottom:14px; font-size:.85rem; }
@@ -262,6 +262,27 @@
   .res { display:flex; justify-content:space-between; padding:6px 0; font-size:.9rem; }
   .res.gras { font-weight:800; font-size:1rem; margin:8px 0 18px; }
   #panier-bas .btn { width:100%; margin-bottom:10px; }
+  #fiche-fond { display:none; position:fixed; inset:0; background:var(--blanc); z-index:23; align-items:stretch; justify-content:stretch; padding:0; }
+  #fiche-fond.open { display:flex; }
+  .galerie { display:flex; overflow-x:auto; scroll-snap-type:x mandatory; }
+  .gal-img { flex:0 0 100%; scroll-snap-align:center; aspect-ratio:4/5; background:var(--gris); display:flex; align-items:center; justify-content:center; font-size:4rem; overflow:hidden; }
+  .gal-img img { width:100%; height:100%; object-fit:cover; }
+  .fiche-nom { text-transform:uppercase; font-size:1.05rem; letter-spacing:1px; margin:16px 0 4px; }
+  .fiche-prix { font-weight:800; margin-bottom:6px; }
+  .fiche-lbl { font-size:.85rem; font-weight:600; text-transform:uppercase; margin:18px 0 8px; }
+  .swatches { display:flex; gap:6px; flex-wrap:wrap; }
+  .sw { width:56px; height:70px; border:1px solid #ccc; background:#fff; padding:0; cursor:pointer; overflow:hidden; font-family:inherit; }
+  .sw img { width:100%; height:100%; object-fit:cover; }
+  .sw.sw-texte { width:auto; height:auto; padding:10px 14px; font-size:.85rem; }
+  .sw.actif { border:2px solid var(--noir); }
+  .tailles { display:grid; grid-template-columns:repeat(auto-fit, minmax(56px, 1fr)); gap:1px; background:#ccc; border:1px solid #ccc; }
+  .taille { padding:14px 0; background:#fff; border:none; font-family:inherit; font-size:.95rem; cursor:pointer; color:var(--noir); }
+  .taille.actif { background:var(--noir); color:#fff; }
+  .lien-guide { background:none; border:none; text-decoration:underline; text-transform:uppercase; font-size:.8rem; font-family:inherit; cursor:pointer; display:block; margin:10px 0 0 auto; color:var(--noir); }
+  .guide-txt { font-size:.85rem; color:#555; margin-top:8px; }
+  .fiche-sous { margin:28px 0 12px; text-transform:uppercase; font-size:.95rem; }
+  #fiche-corps .btn { width:100%; margin:18px 0 6px; }
+  #fiche-corps .acc:first-of-type { margin-top:18px; }
 </style>
 </head>
 <body>
@@ -463,6 +484,13 @@
   </div>
 </div>
 
+<div id="fiche-fond">
+  <div class="compte">
+    <span class="fermer" id="fiche-fermer" role="button" aria-label="Fermer">×</span>
+    <div id="fiche-corps"></div>
+  </div>
+</div>
+
 <div id="options-fond">
   <div class="feuille">
     <span class="fermer-f" id="options-fermer" role="button" aria-label="Fermer">×</span>
@@ -610,6 +638,7 @@
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
   function sauverPanier() { try { localStorage.setItem('ud_panier', JSON.stringify(panier)); } catch (e) {} }
   function fcfa(n) { return Number(n).toLocaleString('fr-FR') + ' FCFA'; }
+  function urlImage(u) { return (u && (u.indexOf('https://') === 0 || u.indexOf('images/') === 0)) ? u : ''; }
   function cle(id, taille, couleur) { return id + '|' + (taille || '') + '|' + (couleur || ''); }
   function lignes() {
     var out = [];
@@ -670,7 +699,7 @@
   function carte(p) {
     var c = el('div', 'fiche');
     var ph = el('div', 'photo');
-    if (p.image_url && p.image_url.indexOf('https://') === 0) { var im = el('img'); im.src = p.image_url; im.alt = p.nom; im.loading = 'lazy'; ph.appendChild(im); }
+    if (urlImage(p.image_url)) { var im = el('img'); im.src = urlImage(p.image_url); im.alt = p.nom; im.loading = 'lazy'; im.decoding = 'async'; ph.appendChild(im); }
     else { ph.textContent = EMOJIS[p.categorie] || '🛍'; }
     if (p.en_promo) { ph.appendChild(el('span', 'badge', 'PROMO')); }
     var inf = el('div', 'infos', p.nom);
@@ -680,6 +709,9 @@
     var b = el('button', 'btn petit', 'Ajouter');
     b.addEventListener('click', function () { choisirOptions(p); });
     c.appendChild(ph); c.appendChild(inf); c.appendChild(b);
+    ph.style.cursor = 'pointer'; inf.style.cursor = 'pointer';
+    ph.addEventListener('click', function () { ouvrirFiche(p); });
+    inf.addEventListener('click', function () { ouvrirFiche(p); });
     reveler(c);
     return c;
   }
@@ -724,6 +756,8 @@
   async function chargerProduits() {
     if (!db) { $('rail-nouveautes').textContent = 'Catalogue indisponible pour le moment.'; return; }
     var colonnes = [
+      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs,description,matieres,images,couleurs_images',
+      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs,description',
       'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs',
       'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix',
       'id,nom,prix,categorie,image_url'
@@ -746,7 +780,7 @@
     L.forEach(function (l) {
       var row = el('div', 'art');
       var ph = el('div', 'art-photo');
-      if (l.p.image_url && l.p.image_url.indexOf('https://') === 0) { var im = el('img'); im.src = l.p.image_url; im.alt = l.p.nom; ph.appendChild(im); }
+      if (urlImage(l.p.image_url)) { var im = el('img'); im.src = urlImage(l.p.image_url); im.alt = l.p.nom; im.decoding = 'async'; ph.appendChild(im); }
       else { ph.textContent = EMOJIS[l.p.categorie] || '🛍'; }
       var inf = el('div', 'art-infos');
       inf.appendChild(el('div', 'art-marque', 'Urban Drip'));
@@ -1067,6 +1101,102 @@
     var ids = (utilisateur.identities || []).map(function (i) { return NOMS[i.provider] || i.provider; });
     c.appendChild(el('p', '', ids.length ? 'Tu te connectes avec : ' + ids.join(', ') + '.' : 'Aucune information de connexion disponible.'));
   }
+
+  // ===== Fiche produit =====
+  function accordeon(titre, texte) {
+    var w = el('div', 'acc'), t = el('button', 'acc-t', titre);
+    t.appendChild(icone('plus'));
+    t.addEventListener('click', function () { w.classList.toggle('ouvert'); });
+    w.appendChild(t); w.appendChild(el('div', 'acc-c', texte));
+    return w;
+  }
+  function fermerFiche() { $('fiche-fond').classList.remove('open'); }
+
+  function ouvrirFiche(p) {
+    var c = $('fiche-corps'); c.textContent = '';
+    var cols = p.couleurs || [], tailles = p.tailles || [], ci = p.couleurs_images || {};
+    var imgs = ((p.images && p.images.length) ? p.images : (p.image_url ? [p.image_url] : [])).map(urlImage).filter(Boolean);
+    var choix = { taille: '', couleur: '' };
+    var etat = el('p', 'esp-etat err');
+
+    var gal = el('div', 'galerie');
+    if (imgs.length) {
+      imgs.forEach(function (u) { var d = el('div', 'gal-img'); var im = el('img'); im.src = u; im.alt = p.nom; im.decoding = 'async'; d.appendChild(im); gal.appendChild(d); });
+    } else { gal.appendChild(el('div', 'gal-img', EMOJIS[p.categorie] || '🛍')); }
+    c.appendChild(gal);
+    c.appendChild(el('h3', 'fiche-nom', p.nom));
+    var pr = el('div', 'fiche-prix', fcfa(p.prix));
+    if (p.en_promo && p.ancien_prix) { pr.appendChild(el('s', 'ancien', fcfa(p.ancien_prix))); }
+    c.appendChild(pr);
+
+    if (cols.length) {
+      var libelle = el('div', 'fiche-lbl', 'Couleurs :');
+      c.appendChild(libelle);
+      var sw = el('div', 'swatches');
+      cols.forEach(function (nom) {
+        var b = el('button', 'sw'), u = urlImage(ci[nom]);
+        if (u) { var im = el('img'); im.src = u; im.alt = nom; b.appendChild(im); } else { b.textContent = nom; b.classList.add('sw-texte'); }
+        b.setAttribute('aria-label', nom);
+        b.addEventListener('click', function () {
+          choix.couleur = nom; libelle.textContent = 'Couleurs : ' + nom; etat.textContent = '';
+          sw.querySelectorAll('.sw').forEach(function (x) { x.classList.remove('actif'); });
+          b.classList.add('actif');
+          var idx = imgs.indexOf(u);
+          if (u && idx >= 0) { gal.scrollTo({ left: idx * gal.clientWidth, behavior: 'smooth' }); }
+        });
+        sw.appendChild(b);
+      });
+      c.appendChild(sw);
+    }
+
+    if (tailles.length) {
+      c.appendChild(el('div', 'fiche-lbl', 'Taille'));
+      var grille = el('div', 'tailles');
+      tailles.forEach(function (t) {
+        var b = el('button', 'taille', t);
+        b.addEventListener('click', function () {
+          choix.taille = t; etat.textContent = '';
+          grille.querySelectorAll('.taille').forEach(function (x) { x.classList.remove('actif'); });
+          b.classList.add('actif');
+        });
+        grille.appendChild(b);
+      });
+      c.appendChild(grille);
+      var guide = cfg('INFO_TAILLES');
+      if (guide) {
+        var lien = el('button', 'lien-guide', 'Guide des tailles'), txt = el('p', 'guide-txt', guide);
+        txt.style.display = 'none';
+        lien.addEventListener('click', function () { txt.style.display = (txt.style.display === 'none') ? 'block' : 'none'; });
+        c.appendChild(lien); c.appendChild(txt);
+      }
+    }
+
+    var ajout = el('button', 'btn', 'Ajouter au panier');
+    ajout.addEventListener('click', function () {
+      if (tailles.length && !choix.taille) { etat.textContent = 'Choisis ta taille.'; return; }
+      if (cols.length && !choix.couleur) { etat.textContent = 'Choisis ta couleur.'; return; }
+      ajouter(p.id, choix.taille, choix.couleur);
+      ajout.textContent = 'Ajouté au panier';
+      setTimeout(function () { ajout.textContent = 'Ajouter au panier'; }, 1500);
+    });
+    c.appendChild(ajout); c.appendChild(etat);
+
+    var liv = cfg('INFO_LIVRAISON');
+    c.appendChild(accordeon('Description et coupe', p.description || 'Description à venir.'));
+    c.appendChild(accordeon('Matériaux et entretien', p.matieres || 'Informations à venir.'));
+    c.appendChild(accordeon('Livraison et paiement', (liv ? liv + ' ' : 'Les informations de livraison sont dans nos conditions de vente. ') + 'Paiement par mobile money (Wave / Orange Money).'));
+
+    var autres = produits.filter(function (x) { return x.id !== p.id && x.categorie !== p.categorie; }).slice(0, 4);
+    if (autres.length) {
+      c.appendChild(el('h3', 'fiche-sous', 'À porter avec'));
+      var rail = el('div', 'rail');
+      autres.forEach(function (x) { rail.appendChild(carte(x)); });
+      c.appendChild(rail);
+    }
+    $('fiche-fond').classList.add('open');
+    $('fiche-fond').querySelector('.compte').scrollTop = 0;
+  }
+  $('fiche-fermer').addEventListener('click', fermerFiche);
 
   function majMenuCompte() {
     var u = utilisateur;
