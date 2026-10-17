@@ -2,8 +2,21 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Urban Drip – Rejoins la team</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Urban Drip – Mode et accessoires pour jeunes</title>
+<meta name="description" content="Urban Drip : vêtements, chaussures, bijoux et bracelets pour ceux qui osent se démarquer. Rejoins la team.">
+<meta name="theme-color" content="#111111">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23111111'/%3E%3Ctext x='16' y='23' font-family='Arial' font-weight='900' font-size='20' text-anchor='middle' fill='%2314803c'%3EU%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Urban Drip">
+<meta property="og:locale" content="fr_FR">
+<meta property="og:title" content="Urban Drip – Mode et accessoires pour jeunes">
+<meta property="og:description" content="Vêtements, chaussures, bijoux et bracelets pour ceux qui osent se démarquer.">
+<meta property="og:url" content="https://meak-lond.github.io/Urban_drip/">
+<meta property="og:image" content="https://meak-lond.github.io/Urban_drip/og-image.png">
+<meta name="twitter:card" content="summary_large_image">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Urban Drip","url":"https://meak-lond.github.io/Urban_drip/","inLanguage":"fr"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
@@ -75,7 +88,7 @@
   #compte-msg { font-size:.85rem; margin-top:12px; text-align:center; min-height:1.2em; }
   #compte-msg.ok { color:#1a7f37; }
   #compte-msg.err { color:#c0392b; }
-  .ou { text-align:center; color:#888; font-size:.8rem; margin:16px 0 10px; }
+  .ou { text-align:center; color:#666; font-size:.8rem; margin:16px 0 10px; }
   .social-btn { width:100%; padding:12px; border:2px solid var(--noir); background:var(--blanc); color:var(--noir); font-weight:bold; cursor:pointer; margin-bottom:8px; font-size:.85rem; }
   .social-btn:hover { border-color:var(--vert); }
   .catalogue { display:grid; grid-template-columns:1fr 1fr; gap:14px; max-width:640px; margin:0 auto; }
@@ -102,7 +115,7 @@
   .recherche input { width:100%; padding:12px 16px; border:1px solid #ccc; border-radius:30px; font-size:.95rem; font-family:inherit; }
   .recherche input:focus { outline:2px solid var(--vert); border-color:var(--vert); }
   .rail .fiche { flex:0 0 165px; scroll-snap-align:start; }
-  .prix .ancien { color:#999; font-weight:normal; margin-left:6px; font-size:.75rem; }
+  .prix .ancien { color:#767676; font-weight:normal; margin-left:6px; font-size:.75rem; }
   .annonce { overflow:hidden; white-space:nowrap; }
   .defile { display:inline-block; padding-left:100%; animation:defile 22s linear infinite; }
   .revele { opacity:0; transform:translateY(24px); transition:opacity .6s ease, transform .6s ease; }
@@ -179,7 +192,7 @@
   .pied-liens { margin-bottom:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:6px 4px; }
   .pied-liens a { color:#ccc; margin:0 10px; text-decoration:underline; }
   #cookies a { color:var(--blanc); text-decoration:underline; }
-  .news-note { font-size:.72rem; color:#777; margin-top:10px; }
+  .news-note { font-size:.72rem; color:#666; margin-top:10px; }
   .news-msg { font-size:.85rem; margin-top:8px; min-height:1.2em; }
   .news-msg.ok { color:#1a7f37; }
   .news-msg.err { color:#c0392b; }
@@ -188,7 +201,7 @@
   #profil-fond.open .compte { animation:monte .3s ease; }
   .lbl { display:block; font-size:.72rem; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:#666; margin:14px 0 6px; }
   .profil-email { font-size:.9rem; margin-bottom:4px; }
-  .profil-note { font-size:.78rem; color:#777; margin-top:6px; }
+  .profil-note { font-size:.78rem; color:#666; margin-top:6px; }
   .dob { display:grid; grid-template-columns:1fr 1.7fr 1.2fr; gap:8px; }
   .dob select { padding:12px 6px; border:1px solid #ccc; background:#fff; font-size:.9rem; font-family:inherit; width:100%; }
   .interets label { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:.9rem; }
@@ -283,6 +296,10 @@
   .fiche-sous { margin:28px 0 12px; text-transform:uppercase; font-size:.95rem; }
   #fiche-corps .btn { width:100%; margin:18px 0 6px; }
   #fiche-corps .acc:first-of-type { margin-top:18px; }
+  .skip { position:absolute; left:-999px; top:0; background:#fff; color:#000; padding:10px 14px; z-index:100; }
+  .skip:focus { left:8px; top:8px; }
+  :focus-visible { outline:2px solid var(--vert); outline-offset:2px; }
+  input, select, textarea, .recherche input, .newsletter input, .compte input, .dob select, .esp-champ, .compte select, .chat-saisie input { font-size:16px; }
 </style>
 </head>
 <body>
@@ -312,6 +329,7 @@
   <symbol id="i-minus" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></symbol>
 </svg>
 
+<a class="skip" href="#contenu">Aller au contenu</a>
 <div class="annonce"><span class="defile">Livraison internationale · <b>Paiement sécurisé</b> · Rejoins la team Urban Drip</span></div>
 
 <header>
@@ -334,6 +352,8 @@
 </nav>
 
 <div class="recherche"><input type="search" id="champ-recherche" placeholder="Rechercher un article…" aria-label="Rechercher"></div>
+
+<main id="contenu">
 
 <div class="hero">
   <h1>Ton style, ta <span>team</span>.</h1>
@@ -388,6 +408,8 @@
   <p class="news-note">En t'inscrivant, tu acceptes de recevoir nos nouveautés. Tu peux te désinscrire à tout moment en nous écrivant.</p>
   <p id="news-msg" class="news-msg"></p>
 </section>
+
+</main>
 
 <footer><div class="pied-liens"><a href="mentions-legales.html">Mentions légales</a><a href="conditions-de-vente.html">Conditions de vente</a><a href="confidentialite.html">Confidentialité</a><a href="#" id="gerer-cookies">Gérer les cookies</a></div>© 2026 Urban Drip – Tous droits réservés</footer>
 
@@ -1422,6 +1444,24 @@
   $('chat-fermer').addEventListener('click', fermerChat);
   bulle("Salut ! Je suis l'assistant automatique d'Urban Drip. Je peux t'aider à trouver un article et répondre sur la livraison, le paiement ou les retours.");
   actions(PUCES);
+
+  // ===== Accessibilité et référencement =====
+  if (!commandesOuvertes()) {
+    var robots = document.createElement('meta'); robots.name = 'robots'; robots.content = 'noindex';
+    document.head.appendChild(robots);
+  }
+  ['compte-fond', 'espace-fond', 'profil-fond', 'panier-fond', 'fiche-fond', 'options-fond'].forEach(function (id) {
+    $(id).setAttribute('role', 'dialog'); $(id).setAttribute('aria-modal', 'true');
+  });
+  document.querySelectorAll('[role=button]').forEach(function (b) {
+    b.setAttribute('tabindex', '0');
+    b.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } });
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') { return; }
+    ['options-fond', 'fiche-fond', 'profil-fond', 'espace-fond', 'panier-fond', 'compte-fond', 'menu', 'menu-fond', 'chat-box'].forEach(function (id) { $(id).classList.remove('open'); });
+    document.body.classList.remove('menu-ouvert');
+  });
 
   $('champ-recherche').addEventListener('input', function () {
     var avant = terme;
