@@ -223,6 +223,22 @@
   .dob { grid-template-columns:minmax(0,1fr) minmax(0,1.7fr) minmax(0,1.2fr); }
   .dob select, .esp-champ, .compte select, .compte textarea { min-width:0; max-width:100%; }
   .lbl, .profil-note, .consent, .consent label, .interets label { overflow-wrap:anywhere; }
+  #chat-box { right:12px; bottom:84px; width:min(340px, calc(100% - 24px)); }
+  #chat-box.open { display:flex; flex-direction:column; }
+  .chat-head { display:flex; justify-content:space-between; align-items:center; }
+  #chat-fermer { cursor:pointer; font-size:1.5rem; line-height:1; }
+  .chat-body { height:min(52vh, 380px); overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:14px; }
+  .bulle { max-width:88%; align-self:flex-start; border-radius:12px; line-height:1.45; overflow-wrap:anywhere; }
+  .bulle.moi { align-self:flex-end; background:var(--noir); color:#fff; }
+  .chat-actions { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { border:1px solid var(--noir); background:#fff; color:var(--noir); padding:7px 12px; border-radius:20px; font-size:.78rem; font-family:inherit; cursor:pointer; margin-top:6px; }
+  .chat-actions .chip { margin-top:0; }
+  .chip:hover { background:var(--noir); color:#fff; }
+  .chip:disabled { opacity:.6; cursor:default; }
+  .chat-saisie { display:flex; border-top:1px solid var(--bord); }
+  .chat-saisie input { flex:1; min-width:0; border:none; padding:14px; font-size:16px; font-family:inherit; outline:none; }
+  .chat-saisie button { background:var(--noir); border:none; width:52px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .chat-saisie .ic { stroke:#fff; width:20px; height:20px; }
 </style>
 </head>
 <body>
@@ -247,6 +263,7 @@
   <symbol id="i-card" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></symbol>
   <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
   <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></symbol>
 </svg>
 
 <div class="annonce"><span class="defile">Livraison internationale · <b>Paiement sécurisé</b> · Rejoins la team Urban Drip</span></div>
@@ -438,10 +455,9 @@
 
 <button id="chat-btn" aria-label="Ouvrir le chat"><svg class="ic" style="stroke:#fff"><use href="#i-chat"/></svg></button>
 <div id="chat-box">
-  <div class="chat-head">Assistant Urban Drip</div>
-  <div class="chat-body">
-    <div class="bulle">Salut ! 👋 Je peux t'aider à trouver une tenue, choisir ta taille ou suivre ta livraison. Que cherches-tu ?</div>
-  </div>
+  <div class="chat-head"><span>Assistant Urban Drip</span><span id="chat-fermer" role="button" aria-label="Fermer">×</span></div>
+  <div class="chat-body" id="chat-body"></div>
+  <div class="chat-saisie"><input type="text" id="chat-input" placeholder="Écris ta question…" aria-label="Ta question"><button id="chat-envoyer" aria-label="Envoyer"><svg class="ic"><use href="#i-send"/></svg></button></div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
@@ -1066,6 +1082,122 @@
     if (r.error && r.error.code !== '23505') { m.textContent = 'Inscription impossible pour le moment.'; return; }
     m.className = 'news-msg ok'; m.textContent = 'Merci, tu fais partie de la team !'; $('news-email').value = '';
   });
+
+  // ===== Assistant automatique =====
+  var zoneChat = $('chat-body');
+  function norm(t) { return t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+  function cfg(n) { var v = window[n]; return (typeof v === 'string') ? v : ''; }
+  function bulle(texte, qui) {
+    var b = el('div', qui === 'moi' ? 'bulle moi' : 'bulle', texte);
+    zoneChat.appendChild(b); zoneChat.scrollTop = zoneChat.scrollHeight; return b;
+  }
+  function actions(liste) {
+    var d = el('div', 'chat-actions');
+    liste.forEach(function (a) { var b = el('button', 'chip', a.texte); b.addEventListener('click', a.fn); d.appendChild(b); });
+    zoneChat.appendChild(d); zoneChat.scrollTop = zoneChat.scrollHeight;
+  }
+  function fermerChat() { $('chat-box').classList.remove('open'); }
+  function aller(page) { return function () { window.location.href = page; }; }
+  var PUCES = [
+    { texte: 'Nouveautés', fn: function () { demander('nouveautés'); } },
+    { texte: 'Promotions', fn: function () { demander('promotions'); } },
+    { texte: 'Livraison', fn: function () { demander('livraison'); } },
+    { texte: 'Paiement', fn: function () { demander('paiement'); } },
+    { texte: 'Retours', fn: function () { demander('retours'); } },
+    { texte: "Joindre l'équipe", fn: function () { demander('contact'); } }
+  ];
+  function montrerProduits(liste, intro) {
+    if (!liste.length) { bulle("Je n'ai rien trouvé pour le moment. Les produits arrivent bientôt."); return; }
+    bulle(intro);
+    liste.slice(0, 4).forEach(function (p) {
+      var b = bulle(p.nom + ' · ' + fcfa(p.prix) + (p.en_promo ? ' (promo)' : ''));
+      var ajout = el('button', 'chip', 'Ajouter au panier');
+      ajout.addEventListener('click', function () { ajouter(p.id); ajout.textContent = 'Ajouté'; ajout.disabled = true; });
+      b.appendChild(el('br')); b.appendChild(ajout);
+    });
+  }
+  function contact() {
+    var e = cfg('CONTACT_EMAIL'), w = cfg('CONTACT_WHATSAPP');
+    if (e || w) { bulle("Tu peux joindre l'équipe : " + [e, w ? 'WhatsApp ' + w : ''].filter(Boolean).join(' · ') + '.'); }
+    else { bulle("Les coordonnées de l'équipe sont dans nos mentions légales."); actions([{ texte: 'Mentions légales', fn: aller('mentions-legales.html') }]); }
+  }
+  var CATS = [
+    ['vetements', /(vetement|habit|tshirt|t-shirt|hoodie|pull|pantalon|robe|short|veste|jean|tenue)/],
+    ['chaussures', /(chaussure|basket|sneaker|soulier|sandale)/],
+    ['bijoux', /(bijou|bague|collier|boucle)/],
+    ['bracelets', /(bracelet)/]
+  ];
+
+  function repondre(q) {
+    var a = function (re) { return re.test(q); };
+    var nombres = (q.replace(/[ .]/g, '').match(/\d+/g) || []).map(Number).filter(function (n) { return n >= 500; });
+    if (a(/^(bonjour|bonsoir|salut|coucou|hello|hey)/)) { bulle('Salut ! Que puis-je faire pour toi ?'); actions(PUCES); return; }
+    if (a(/(merci|parfait|genial)/)) { bulle('Avec plaisir ! Autre chose ?'); return; }
+    if (a(/(humain|conseiller|joindre|contact|whatsapp|telephone|appeler|equipe)/)) { contact(); return; }
+    if (nombres.length && a(/(moins|budget|max|jusqu|fcfa|cfa|francs|pas cher)/)) {
+      var m = nombres[0];
+      montrerProduits(produits.filter(function (p) { return p.prix <= m; }), "Voici ce que j'ai jusqu'à " + fcfa(m) + ' :');
+      return;
+    }
+    if (a(/(promo|reduction|solde|remise|bon plan)/)) {
+      var pr = produits.filter(function (p) { return p.en_promo; });
+      if (pr.length) { montrerProduits(pr, 'Nos promotions du moment :'); }
+      else { montrerProduits(produits, "Pas de promo pour l'instant, mais voici nos articles :"); }
+      return;
+    }
+    if (a(/(nouveau|nouveaute|dernier|arrivage)/)) { montrerProduits(produits, 'Nos dernières nouveautés :'); return; }
+    for (var i = 0; i < CATS.length; i++) {
+      if (a(CATS[i][1])) {
+        var cat = CATS[i][0];
+        montrerProduits(produits.filter(function (p) { return p.categorie === cat; }), 'Voici nos ' + NOMS_CAT[cat].toLowerCase() + ' :');
+        actions([{ texte: 'Voir toute la catégorie', fn: function () { fermerChat(); filtre = cat; afficherProduits(true); } }]);
+        return;
+      }
+    }
+    if (a(/(livraison|livrer|delai|expedi|frais de port|international)/)) {
+      var l = cfg('INFO_LIVRAISON');
+      bulle(l ? 'Livraison : ' + l : 'Les zones, délais et frais de livraison sont détaillés dans nos conditions de vente.');
+      actions([{ texte: 'Conditions de vente', fn: aller('conditions-de-vente.html') }]); return;
+    }
+    if (a(/(paiement|payer|paye|wave|orange|mobile money|momo|cinetpay|carte)/)) {
+      bulle("Tu paies par mobile money (Wave ou Orange Money) : une fois ta commande validée, on t'indique le numéro et la référence à utiliser. Le paiement automatique en ligne arrive bientôt." + (commandesOuvertes() ? '' : ' Les commandes ouvrent bientôt.'));
+      return;
+    }
+    if (a(/(retour|rembours|echange|renvoyer|defectueu)/)) {
+      var r = cfg('INFO_RETOURS');
+      bulle("Pour un retour, connecte-toi puis ouvre Mon compte > Demande de retour." + (r ? ' ' + r : ''));
+      actions([{ texte: 'Ouvrir mon compte', fn: function () { fermerChat(); if (utilisateur) { ouvrirEspace(); } else { ouvrir(); } } }]); return;
+    }
+    if (a(/(commande|suivi|statut|colis)/)) {
+      bulle('Retrouve toutes tes commandes et leur statut dans Mon compte > Mes commandes.');
+      actions([{ texte: 'Mes commandes', fn: function () { fermerChat(); if (utilisateur) { ouvrirEspace(vueCommandes); } else { ouvrir(); } } }]); return;
+    }
+    if (a(/(compte|inscri|connexion|connecter|mot de passe|google)/)) {
+      bulle("Touche l'icône de profil en haut de la page pour te connecter ou créer un compte, avec ton e-mail ou ton compte Google.");
+      actions([{ texte: 'Créer un compte', fn: function () { fermerChat(); choisirMode('inscription'); ouvrir(); } }]); return;
+    }
+    if (a(/(confidential|donnee|cookie|vie privee|rgpd)/)) {
+      bulle('Tout est expliqué dans notre politique de confidentialité.');
+      actions([{ texte: 'Politique de confidentialité', fn: aller('confidentialite.html') }]); return;
+    }
+    if (a(/(taille|pointure|guide)/)) { bulle('Pour une question de taille ou de pointure sur un article précis, écris directement à l\'équipe.'); contact(); return; }
+    if (a(/(prix|combien|tarif|cher)/)) { montrerProduits(produits, 'Voici quelques articles avec leur prix :'); return; }
+    bulle("Je ne suis pas sûr de bien comprendre. Je peux t'aider sur les produits, la livraison, le paiement ou les retours, ou te mettre en contact avec l'équipe.");
+    actions(PUCES);
+  }
+
+  function demander(texte) {
+    texte = (texte || '').trim();
+    if (!texte) { return; }
+    bulle(texte, 'moi');
+    var q = norm(texte);
+    setTimeout(function () { repondre(q); }, 350);
+  }
+  $('chat-envoyer').addEventListener('click', function () { var i = $('chat-input'); var t = i.value; i.value = ''; demander(t); });
+  $('chat-input').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('chat-envoyer').click(); } });
+  $('chat-fermer').addEventListener('click', fermerChat);
+  bulle("Salut ! Je suis l'assistant automatique d'Urban Drip. Je peux t'aider à trouver un article et répondre sur la livraison, le paiement ou les retours.");
+  actions(PUCES);
 
   $('champ-recherche').addEventListener('input', function () {
     var avant = terme;
