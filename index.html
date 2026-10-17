@@ -179,6 +179,10 @@
   .pied-liens { margin-bottom:10px; display:flex; flex-wrap:wrap; justify-content:center; gap:6px 4px; }
   .pied-liens a { color:#ccc; margin:0 10px; text-decoration:underline; }
   #cookies a { color:var(--blanc); text-decoration:underline; }
+  .news-note { font-size:.72rem; color:#777; margin-top:10px; }
+  .news-msg { font-size:.85rem; margin-top:8px; min-height:1.2em; }
+  .news-msg.ok { color:#1a7f37; }
+  .news-msg.err { color:#c0392b; }
 </style>
 </head>
 <body>
@@ -271,8 +275,10 @@
 <section class="newsletter">
   <h2>Rejoins <span>l'équipe</span></h2>
   <p>Nouveautés et offres en avant-première.</p>
-  <input type="email" placeholder="Ton e-mail"><br>
-  <button class="btn">Je rejoins</button>
+  <input type="email" id="news-email" placeholder="Ton e-mail" autocomplete="email"><br>
+  <button class="btn" id="news-btn">Je rejoins</button>
+  <p class="news-note">En t'inscrivant, tu acceptes de recevoir nos nouveautés. Tu peux te désinscrire à tout moment en nous écrivant.</p>
+  <p id="news-msg" class="news-msg"></p>
 </section>
 
 <footer><div class="pied-liens"><a href="mentions-legales.html">Mentions légales</a><a href="conditions-de-vente.html">Conditions de vente</a><a href="confidentialite.html">Confidentialité</a><a href="#" id="gerer-cookies">Gérer les cookies</a></div>© 2026 Urban Drip – Tous droits réservés</footer>
@@ -470,6 +476,7 @@
   var utilisateur = null;
   try { panier = JSON.parse(localStorage.getItem('ud_panier') || '{}') || {}; } catch (e) { panier = {}; }
 
+  function commandesOuvertes() { return typeof COMMANDES_OUVERTES !== 'undefined' && COMMANDES_OUVERTES === true; }
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; }
   function sauverPanier() { try { localStorage.setItem('ud_panier', JSON.stringify(panier)); } catch (e) {} }
   function fcfa(n) { return Number(n).toLocaleString('fr-FR') + ' FCFA'; }
@@ -575,6 +582,10 @@
       zl.appendChild(row);
     });
     zb.appendChild(el('p', 'total-l', 'Total : ' + fcfa(totalPanier())));
+    if (!commandesOuvertes()) {
+      zb.appendChild(el('p', '', 'Les commandes ouvrent bientôt. Garde ton panier : tu pourras commander dès l\'ouverture.'));
+      return;
+    }
     if (!utilisateur) {
       zb.appendChild(el('p', '', 'Connecte-toi pour passer commande.'));
       var bc = el('button', 'btn', 'Me connecter');
@@ -596,6 +607,7 @@
   }
 
   async function commander() {
+    if (!commandesOuvertes()) { return; }
     var m = $('panier-msg');
     var tel = $('cmd-tel').value.trim(), adr = $('cmd-adr').value.trim();
     if (tel.length < 8 || adr.length < 5) { m.textContent = 'Entre ton téléphone et ton adresse.'; m.className = 'err'; return; }
@@ -731,6 +743,21 @@
     e.preventDefault();
     try { localStorage.removeItem('ud_cookies'); } catch (er) {}
     $('cookies').classList.add('visible');
+  });
+
+  if (!commandesOuvertes()) {
+    var bandeau = document.querySelector('.defile');
+    if (bandeau) { bandeau.textContent = 'Ouverture bientôt · Inscris-toi pour être prévenu(e) · Urban Drip'; }
+  }
+
+  $('news-btn').addEventListener('click', async function () {
+    var m = $('news-msg'), mail = $('news-email').value.trim().toLowerCase();
+    m.className = 'news-msg err';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) { m.textContent = 'Entre une adresse e-mail valide.'; return; }
+    if (!db) { m.textContent = 'Inscription indisponible pour le moment.'; return; }
+    var r = await db.from('abonnes').insert({ email: mail });
+    if (r.error && r.error.code !== '23505') { m.textContent = 'Inscription impossible pour le moment.'; return; }
+    m.className = 'news-msg ok'; m.textContent = 'Merci, tu fais partie de la team !'; $('news-email').value = '';
   });
 
   $('champ-recherche').addEventListener('input', function () {
