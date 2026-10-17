@@ -176,6 +176,9 @@
   #cookies .btn.clair { background:transparent; color:var(--blanc); }
   #cookies .btn:hover { background:#ddd; border-color:#ddd; color:var(--noir); }
   @media (prefers-reduced-motion: reduce) { #cookies { transition:none; } }
+  .pied-liens { margin-bottom:10px; }
+  .pied-liens a { color:#ccc; margin:0 10px; text-decoration:underline; }
+  #cookies a { color:var(--blanc); text-decoration:underline; }
 </style>
 </head>
 <body>
@@ -272,7 +275,7 @@
   <button class="btn">Je rejoins</button>
 </section>
 
-<footer>© 2026 Urban Drip – Tous droits réservés</footer>
+<footer><div class="pied-liens"><a href="confidentialite.html">Politique de confidentialité</a><a href="#" id="gerer-cookies">Gérer les cookies</a></div>© 2026 Urban Drip – Tous droits réservés</footer>
 
 <div id="menu-fond"></div>
 <aside id="menu" aria-label="Menu">
@@ -299,6 +302,7 @@
     <a class="m-item" id="m-commandes"><svg class="ic"><use href="#i-colis"/></svg> Mes commandes</a>
     <div class="acc"><button class="acc-t">Aide &amp; Information <svg class="ic"><use href="#i-plus"/></svg></button><div class="acc-c">Pour commander : ajoute tes articles au panier, connecte-toi puis valide ta commande. Paiement par mobile money (Wave / Orange Money) ; le paiement automatique arrive bientôt.</div></div>
     <div class="acc"><button class="acc-t">À propos d'Urban Drip <svg class="ic"><use href="#i-plus"/></svg></button><div class="acc-c">Une boutique de mode et d'accessoires pour les jeunes qui assument leur style : vêtements, chaussures, bijoux et bracelets.</div></div>
+    <a class="m-item" href="confidentialite.html">Politique de confidentialité</a>
   </div>
 </aside>
 
@@ -338,7 +342,7 @@
 </div>
 
 <div id="cookies" role="dialog" aria-live="polite" aria-label="Cookies">
-  <p><strong>Cookies</strong><br>Urban Drip utilise des cookies et le stockage de ton navigateur pour garder ton panier et ta connexion. Avec ton accord, nous pourrons aussi mesurer l'audience pour améliorer le site.</p>
+  <p><strong>Cookies</strong><br>Urban Drip utilise des cookies et le stockage de ton navigateur pour garder ton panier et ta connexion. Avec ton accord, nous pourrons aussi mesurer l'audience pour améliorer le site. <a href="confidentialite.html">En savoir plus</a></p>
   <div class="cookies-btns"><button class="btn" id="cookies-ok">Accepter</button><button class="btn clair" id="cookies-non">Refuser</button></div>
 </div>
 
@@ -721,6 +725,11 @@
   }
   $('cookies-ok').addEventListener('click', function () { repondreCookies('accepte'); });
   $('cookies-non').addEventListener('click', function () { repondreCookies('refuse'); });
+  $('gerer-cookies').addEventListener('click', function (e) {
+    e.preventDefault();
+    try { localStorage.removeItem('ud_cookies'); } catch (er) {}
+    $('cookies').classList.add('visible');
+  });
 
   $('champ-recherche').addEventListener('input', function () {
     var avant = terme;
