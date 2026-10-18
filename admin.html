@@ -39,6 +39,12 @@
   #recos li { background:var(--gris); padding:10px 12px; margin-bottom:8px; border-left:3px solid var(--vert); }
   #recos li.nul { background:none; border:none; color:#666; }
   .stock-bloc { margin-top:10px; }
+  .graph { width:100%; height:auto; display:block; background:#fafafa; }
+  .barre { display:grid; grid-template-columns:minmax(0,40%) minmax(0,1fr) auto; gap:8px; align-items:center; margin-bottom:8px; font-size:.8rem; }
+  .barre-lib { overflow-wrap:anywhere; }
+  .barre-piste { background:var(--gris); height:14px; }
+  .barre-fill { background:var(--noir); height:100%; }
+  .barre-val { font-weight:600; white-space:nowrap; }
   #attente { padding-left:0; list-style:none; }
   .attente-item { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; background:var(--gris); padding:12px; margin-bottom:8px; font-size:.85rem; }
   .btn.petit { width:auto; padding:10px 14px; margin-top:0; font-size:.75rem; }
@@ -75,17 +81,20 @@
     <h3>Vue d'ensemble</h3>
     <div class="cartes" id="indicateurs"></div>
 
+    <h3>Évolution du chiffre d'affaires</h3>
+    <div id="graph-jours"></div>
+
     <h3>Paiements à confirmer</h3>
     <ul class="liste" id="attente"></ul>
 
     <h3>Recommandations</h3>
     <ul class="liste" id="recos"></ul>
 
-    <h3>Commandes</h3>
-    <ul class="liste" id="statuts"></ul>
+    <h3>Commandes par statut</h3>
+    <div id="statuts"></div>
 
-    <h3>Articles les plus vendus</h3>
-    <ol class="liste" id="top"></ol>
+    <h3>Articles les plus vendus (chiffre d'affaires)</h3>
+    <div id="top"></div>
 
     <h3>Dépenses</h3>
     <ul class="liste" id="depenses"></ul>
@@ -213,6 +222,7 @@
   function afficher(x) {
     var d = x.d, dp = x.dp, c = x.c, cp = x.cp, b = x.b;
     $('periode-txt').textContent = b.titre + ' · du ' + D(b.debut) + ' au ' + D(b.fin);
+    graphiqueJours($('graph-jours'), x.jours || []);
 
     var ind = vider($('indicateurs'));
     carte(ind, "Chiffre d'affaires net", F(c.net), evolution(c.net, cp.net));
@@ -230,14 +240,14 @@
 
     liste(vider($('recos')), x.recos, 'Rien à signaler pour le moment.');
 
-    liste(vider($('statuts')),
+    barresH($('statuts'),
       Object.keys(STATUTS).filter(function (k) { return d.statuts[k]; })
-        .map(function (k) { return STATUTS[k] + ' : ' + d.statuts[k]; }),
-      'Aucune commande sur la période.');
+        .map(function (k) { return { l: STATUTS[k], v: Number(d.statuts[k]) }; }),
+      'Aucune commande sur la période.', String);
 
-    liste(vider($('top')),
-      (d.top_articles || []).map(function (a) { return a.nom + ' · ' + a.quantite + ' vendu(s) · ' + F(a.ca); }),
-      'Aucune vente sur la période.');
+    barresH($('top'),
+      (d.top_articles || []).map(function (a) { return { l: a.nom + ' · ' + a.quantite + ' vendu(s)', v: Number(a.ca) || 0 }; }),
+      'Aucune vente sur la période.', F);
 
     var cats = d.depenses_par_categorie || {};
     liste(vider($('depenses')),
@@ -264,9 +274,9 @@
     $('ad-msg2').textContent = '';
     var b = bornes(p), avant = precedent(b);
     try {
-      var r = await Promise.all([appeler(b), appeler(avant)]);
+      var r = await Promise.all([appeler(b), appeler(avant), ventesJours(b)]);
       var c = calc(r[0]), cp = calc(r[1]);
-      dernier = { d: r[0], dp: r[1], b: b, c: c, cp: cp, recos: recommandations(r[0], r[1], c, cp) };
+      dernier = { d: r[0], dp: r[1], jours: r[2], b: b, c: c, cp: cp, recos: recommandations(r[0], r[1], c, cp) };
       afficher(dernier);
       await chargerAttente();
     } catch (e) {
@@ -275,6 +285,65 @@
         ? "Accès refusé : ce compte n'est pas administrateur."
         : 'Impossible de charger le rapport : ' + m;
     }
+  }
+
+  async function ventesJours(b) {
+    var r = await db.rpc('ventes_par_jour', { debut: b.debut.toISOString(), fin: b.fin.toISOString() });
+    if (r.error) { throw r.error; }
+    return r.data || [];
+  }
+
+  function barresH(parent, items, vide, format) {
+    vider(parent);
+    if (!items.length) { liste(parent, [], vide); return; }
+    var max = Math.max.apply(null, items.map(function (i) { return i.v; })) || 1;
+    items.forEach(function (i) {
+      var row = document.createElement('div'); row.className = 'barre';
+      var lab = document.createElement('div'); lab.className = 'barre-lib'; lab.textContent = i.l;
+      var piste = document.createElement('div'); piste.className = 'barre-piste';
+      var fill = document.createElement('div'); fill.className = 'barre-fill';
+      fill.style.width = Math.max(2, Math.round(i.v / max * 100)) + '%';
+      piste.appendChild(fill);
+      var val = document.createElement('div'); val.className = 'barre-val'; val.textContent = format(i.v);
+      row.appendChild(lab); row.appendChild(piste); row.appendChild(val);
+      parent.appendChild(row);
+    });
+  }
+
+  function graphiqueJours(parent, jours) {
+    vider(parent);
+    if (!jours.length) { liste(parent, [], 'Aucune donnée sur la période.'); return; }
+    var ns = 'http://www.w3.org/2000/svg';
+    var W = 600, H = 180, pad = 8, gap = 4, n = jours.length;
+    var max = Math.max.apply(null, jours.map(function (j) { return Number(j.ca) || 0; })) || 1;
+    var bw = Math.max(3, (W - pad * 2 - gap * (n - 1)) / n);
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (H + 24));
+    svg.setAttribute('class', 'graph');
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', "Chiffre d'affaires par jour");
+    jours.forEach(function (j, i) {
+      var v = Number(j.ca) || 0;
+      var h = Math.round(v / max * (H - 10));
+      var x = pad + i * (bw + gap);
+      var r = document.createElementNS(ns, 'rect');
+      r.setAttribute('x', x); r.setAttribute('y', H - h);
+      r.setAttribute('width', bw); r.setAttribute('height', h);
+      r.setAttribute('fill', v > 0 ? '#111' : '#ddd');
+      var t = document.createElementNS(ns, 'title');
+      t.textContent = D(new Date(j.jour)) + ' · ' + F(v) + ' · ' + j.commandes + ' commande(s)';
+      r.appendChild(t);
+      svg.appendChild(r);
+      var pas = Math.ceil(n / 7);
+      if (i % pas === 0) {
+        var lab = document.createElementNS(ns, 'text');
+        lab.setAttribute('x', x + bw / 2); lab.setAttribute('y', H + 16);
+        lab.setAttribute('text-anchor', 'middle'); lab.setAttribute('font-size', '11');
+        lab.textContent = new Date(j.jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'numeric' });
+        svg.appendChild(lab);
+      }
+    });
+    parent.appendChild(svg);
   }
 
   async function chargerAttente() {
