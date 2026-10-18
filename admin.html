@@ -45,6 +45,14 @@
   .barre-piste { background:var(--gris); height:14px; }
   .barre-fill { background:var(--noir); height:100%; }
   .barre-val { font-weight:600; white-space:nowrap; }
+  .g-resume { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-bottom:12px; }
+  .g-mini { background:var(--gris); padding:10px 8px; min-width:0; }
+  .g-mini .v { font-weight:800; font-size:.9rem; overflow-wrap:anywhere; }
+  .g-mini .l { font-size:.66rem; text-transform:uppercase; letter-spacing:.4px; color:#555; }
+  .g-detail { background:var(--noir); color:#fff; padding:12px 14px; margin:12px 0; font-size:.85rem; min-height:4.2em; }
+  .g-detail .t { font-weight:700; margin-bottom:2px; }
+  .g-titre { font-size:.75rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin:16px 0 6px; }
+  .graph { width:100%; height:auto; display:block; }
   #attente { padding-left:0; list-style:none; }
   .attente-item { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; background:var(--gris); padding:12px; margin-bottom:8px; font-size:.85rem; }
   .btn.petit { width:auto; padding:10px 14px; margin-top:0; font-size:.75rem; }
@@ -310,40 +318,118 @@
     });
   }
 
+  function svgEl(tag, attrs) {
+    var e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.keys(attrs).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    return e;
+  }
+
+  // Abrège les grands nombres pour l'axe : 50 000 -> 50 k
+  function FK(n) {
+    n = Number(n) || 0;
+    if (n >= 1000000) { return (Math.round(n / 100000) / 10).toString().replace('.', ',') + ' M'; }
+    if (n >= 1000) { return Math.round(n / 1000) + ' k'; }
+    return String(Math.round(n));
+  }
+
+  // Arrondit le maximum à une valeur ronde pour l'axe
+  function niveauMax(v) {
+    if (v <= 0) { return 1; }
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    var m = v / p;
+    var c = m <= 1 ? 1 : (m <= 2 ? 2 : (m <= 5 ? 5 : 10));
+    return c * p;
+  }
+
+  function mini(parent, lib, val) {
+    var c = document.createElement('div'); c.className = 'g-mini';
+    var v = document.createElement('div'); v.className = 'v'; v.textContent = val;
+    var l = document.createElement('div'); l.className = 'l'; l.textContent = lib;
+    c.appendChild(v); c.appendChild(l); parent.appendChild(c);
+  }
+
   function graphiqueJours(parent, jours) {
     vider(parent);
     if (!jours.length) { liste(parent, [], 'Aucune donnée sur la période.'); return; }
-    var ns = 'http://www.w3.org/2000/svg';
-    var W = 600, H = 180, pad = 8, gap = 4, n = jours.length;
-    var max = Math.max.apply(null, jours.map(function (j) { return Number(j.ca) || 0; })) || 1;
-    var bw = Math.max(3, (W - pad * 2 - gap * (n - 1)) / n);
-    var svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + W + ' ' + (H + 24));
-    svg.setAttribute('class', 'graph');
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', "Chiffre d'affaires par jour");
+
+    var n = jours.length, total = 0, cmd = 0, meilleur = 0, maxCa = 0;
     jours.forEach(function (j, i) {
       var v = Number(j.ca) || 0;
-      var h = Math.round(v / max * (H - 10));
-      var x = pad + i * (bw + gap);
-      var r = document.createElementNS(ns, 'rect');
-      r.setAttribute('x', x); r.setAttribute('y', H - h);
-      r.setAttribute('width', bw); r.setAttribute('height', h);
-      r.setAttribute('fill', v > 0 ? '#111' : '#ddd');
-      var t = document.createElementNS(ns, 'title');
-      t.textContent = D(new Date(j.jour)) + ' · ' + F(v) + ' · ' + j.commandes + ' commande(s)';
-      r.appendChild(t);
-      svg.appendChild(r);
-      var pas = Math.ceil(n / 7);
-      if (i % pas === 0) {
-        var lab = document.createElementNS(ns, 'text');
-        lab.setAttribute('x', x + bw / 2); lab.setAttribute('y', H + 16);
-        lab.setAttribute('text-anchor', 'middle'); lab.setAttribute('font-size', '11');
-        lab.textContent = new Date(j.jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'numeric' });
+      total += v; cmd += Number(j.commandes) || 0;
+      if (v > maxCa) { maxCa = v; meilleur = i; }
+    });
+
+    var resume = document.createElement('div'); resume.className = 'g-resume';
+    mini(resume, "Chiffre d'affaires", F(total));
+    mini(resume, 'Commandes', String(cmd));
+    mini(resume, 'Meilleur jour', maxCa > 0 ? D(new Date(jours[meilleur].jour)) : '—');
+    parent.appendChild(resume);
+
+    var detail = document.createElement('div'); detail.className = 'g-detail';
+    parent.appendChild(detail);
+
+    var W = 600, H = 230, haut = 10, bas = 26, gauche = 46, droite = 6;
+    var hauteur = H - haut - bas, largeur = W - gauche - droite;
+    var yMax = niveauMax(maxCa);
+    var slot = largeur / n;
+    var bw = Math.max(3, slot * 0.62);
+
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, 'class': 'graph', role: 'img', 'aria-label': "Chiffre d'affaires par jour" });
+
+    // Grille et axe des valeurs
+    [0, 0.5, 1].forEach(function (f) {
+      var y = haut + hauteur - f * hauteur;
+      svg.appendChild(svgEl('line', { x1: gauche, y1: y, x2: W - droite, y2: y, stroke: '#e6e6e6' }));
+      var t = svgEl('text', { x: gauche - 6, y: y + 4, 'text-anchor': 'end', 'font-size': '11', fill: '#666' });
+      t.textContent = FK(f * yMax);
+      svg.appendChild(t);
+    });
+
+    var barres = [];
+    jours.forEach(function (j, i) {
+      var v = Number(j.ca) || 0;
+      var h = v / yMax * hauteur;
+      var x = gauche + i * slot + (slot - bw) / 2;
+      var barre = svgEl('rect', { x: x, y: haut + hauteur - h, width: bw, height: h, fill: v > 0 ? '#111' : '#e3e3e3' });
+      svg.appendChild(barre); barres.push(barre);
+
+      // Zone transparente plus large que la barre, pour toucher facilement
+      var zone = svgEl('rect', { x: gauche + i * slot, y: haut, width: slot, height: hauteur, fill: '#000', 'fill-opacity': '0', style: 'cursor:pointer' });
+      zone.addEventListener('click', function () { choisir(i); });
+      svg.appendChild(zone);
+
+      if (i % Math.ceil(n / 7) === 0) {
+        var lab = svgEl('text', { x: gauche + i * slot + slot / 2, y: H - 6, 'text-anchor': 'middle', 'font-size': '11', fill: '#666' });
+        lab.textContent = new Date(j.jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
         svg.appendChild(lab);
       }
     });
+
+    function choisir(i) {
+      barres.forEach(function (r, k) {
+        var v = Number(jours[k].ca) || 0;
+        r.setAttribute('fill', k === i ? '#14803c' : (v > 0 ? '#111' : '#e3e3e3'));
+      });
+      var j = jours[i], v = Number(j.ca) || 0, c = Number(j.commandes) || 0;
+      detail.textContent = '';
+      var t = document.createElement('div'); t.className = 't'; t.textContent = D(new Date(j.jour));
+      var l = document.createElement('div');
+      l.textContent = v > 0
+        ? "Chiffre d'affaires : " + F(v) + ' · ' + c + ' commande(s) · panier moyen ' + F(v / c)
+        : 'Aucune vente ce jour-là';
+      detail.appendChild(t); detail.appendChild(l);
+    }
+
     parent.appendChild(svg);
+    choisir(meilleur);
+
+    var titre = document.createElement('div'); titre.className = 'g-titre'; titre.textContent = 'Jours avec ventes';
+    parent.appendChild(titre);
+    var ul = document.createElement('ul'); ul.className = 'liste'; parent.appendChild(ul);
+    liste(ul,
+      jours.filter(function (j) { return Number(j.ca) > 0; })
+        .map(function (j) { return D(new Date(j.jour)) + ' · ' + F(j.ca) + ' · ' + j.commandes + ' commande(s)'; }),
+      'Aucune vente sur la période.');
   }
 
   async function chargerAttente() {
