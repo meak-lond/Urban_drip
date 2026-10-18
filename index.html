@@ -19,7 +19,7 @@
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Urban Drip","url":"https://meak-lond.github.io/Urban_drip/","inLanguage":"fr"}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Poppins:wght@400;600;800&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet">
 <style>
   :root { --blanc:#ffffff; --noir:#111111; --vert:#14803c; --gris:#f4f4f4; --bord:#e6e6e6; }
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -310,121 +310,73 @@
   .fav-ligne { flex-wrap:wrap; gap:10px; }
   .fav-actions { display:flex; gap:8px; flex-wrap:wrap; width:100%; }
   .fav-actions .btn { width:auto; margin-top:0; }
-  #nb-favoris:not(:empty) { position:absolute; top:-7px; right:-9px; background:var(--vert); color:#fff; border-radius:10px; font-size:.65rem; min-width:16px; padding:1px 4px; text-align:center; line-height:1.3; }/* ===== URBAN DRIP : DESIGN PREMIUM ===== */
+  #nb-favoris:not(:empty) { position:absolute; top:-7px; right:-9px; background:var(--vert); color:#fff; border-radius:10px; font-size:.65rem; min-width:16px; padding:1px 4px; text-align:center; line-height:1.3; }
 
-:root {
-  --blanc: #ffffff;
-  --noir: #111111;
-  --vert: #3E6B2F;
-  --gris: #f5f5f2;
-  --bord: #e5e5e0;
-}
+  /* ===== Direction artistique : streetwear + premium ===== */
+  :root { --noir:#0b0b0b; --blanc:#fafaf7; --gris:#efeee9; --bord:#dcdad3; --or:#b8925a; --vert:#14803c; }
+  body { background:var(--blanc); color:var(--noir); letter-spacing:.01em; }
+  .logo, h2, .menu-titre, .m-accueil, .m-ligne { font-family:'Archivo Black', 'Poppins', Arial, sans-serif; font-weight:400; }
+  .logo { font-size:1.3rem; letter-spacing:.14em; }
+  .logo span { color:var(--vert); }
 
-/* Bandeau principal */
-.hero {
-  background: #111111;
-  color: #ffffff;
-  padding: 64px 22px;
-  text-align: left;
-  min-height: 320px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-}
+  /* Bandeau d'annonce */
+  .annonce { background:var(--noir); color:#f3efe4; text-transform:uppercase; letter-spacing:.14em; font-size:.66rem; border-bottom:1px solid #222; }
+  .annonce b { color:var(--or); font-weight:600; }
 
-.hero h1 {
-  color: #ffffff;
-  font-size: clamp(2.4rem, 9vw, 3.8rem);
-  line-height: 1.05;
-  text-align: left;
-  margin: 0;
-}
+  /* En-tête et navigation */
+  header { background:rgba(250,250,247,.94); backdrop-filter:saturate(1.2) blur(8px); -webkit-backdrop-filter:saturate(1.2) blur(8px); border-bottom:1px solid var(--bord); }
+  nav { border-bottom:1px solid var(--bord); }
+  nav a { font-weight:600; letter-spacing:.12em; }
 
-.hero h1 span {
-  color: var(--vert);
-}
+  /* Accueil : fond sombre, titre massif, accent doré */
+  .hero { background:linear-gradient(180deg, #161616 0%, #0b0b0b 100%); color:#f3efe4; padding:88px 22px 84px; }
+  .hero h1 { color:#f3efe4; font-size:clamp(2.2rem, 9vw, 3.4rem); line-height:1.02; text-transform:uppercase; letter-spacing:-.01em; }
+  .hero h1 span { color:var(--vert); font-family:'Playfair Display', Georgia, serif; font-style:italic; font-weight:700; text-transform:none; letter-spacing:0; }
+  .hero p { color:#bdb8ab; }
+  .hero::after { background:transparent; border:1px solid var(--or); opacity:.45; width:240px; height:240px; right:-90px; bottom:-90px; }
+  .hero .btn.clair { background:transparent; color:#f3efe4; border-color:#f3efe4; }
+  .hero .btn.clair:hover { background:#f3efe4; color:var(--noir); border-color:#f3efe4; }
 
-.hero p {
-  color: #d6d6d6;
-  text-align: left;
-  margin: 18px 0 26px;
-  max-width: 360px;
-}
+  /* Boutons : angles droits, espacement large */
+  .btn { border-radius:0; letter-spacing:.14em; font-weight:700; transition:background .2s, color .2s, border-color .2s; }
+  .btn:hover { background:var(--vert); border-color:var(--vert); color:#fff; }
 
-.hero::after {
-  width: 150px;
-  height: 150px;
-  right: -55px;
-  bottom: -55px;
-  background: var(--vert);
-  opacity: 0.12;
-}
+  /* Titres de section : capitales et filet doré */
+  h2 { font-size:1.2rem; letter-spacing:.08em; text-transform:uppercase; padding-bottom:14px; }
+  h2::after { content:""; display:block; width:44px; height:2px; background:var(--or); margin:12px auto 0; }
 
-/* Boutons plus nets */
-.boutons {
-  justify-content: flex-start;
-  gap: 12px;
-}
+  /* Catégories */
+  .cat { background:#fff; border:1px solid var(--bord); transition:transform .25s, border-color .25s, box-shadow .25s; }
+  .cat:hover { border-color:var(--noir); box-shadow:0 10px 24px rgba(0,0,0,.08); }
 
-.btn {
-  border-radius: 4px;
-  transition: transform 0.2s, background 0.2s;
-}
+  /* Fiches produit */
+  .fiche .photo { background:#f1f0eb; }
+  .fiche .photo img { transition:transform .6s ease; }
+  .fiche:hover .photo img { transform:scale(1.04); }
+  .fiche .infos { text-transform:uppercase; letter-spacing:.04em; font-weight:600; font-size:.8rem; }
+  .prix { font-variant-numeric:tabular-nums; color:var(--noir); }
+  .badge { letter-spacing:.1em; }
 
-.btn:hover {
-  background: var(--vert);
-  border-color: var(--vert);
-  color: var(--noir);
-}
+  /* Bandes et encarts */
+  .bande { background:var(--noir); color:#f3efe4; }
+  .bande p { color:#bdb8ab; }
+  .garanties div { background:#fff; border:1px solid var(--bord); }
+  .newsletter { background:#fff; border-top:1px solid var(--bord); }
 
-/* Catégories plus modernes */
-.cats {
-  gap: 14px;
-}
+  /* Pied de page */
+  footer { background:var(--noir); color:#8d887c; border-top:1px solid #222; letter-spacing:.06em; }
+  footer a { color:#d9d3c4; }
 
-.cat {
-  background: #f5f5f2;
-  border: 1px solid #e5e5e0;
-  border-radius: 8px;
-  padding: 28px 12px;
-  transition: transform 0.2s, border-color 0.2s;
-}
+  /* Menu latéral et fenêtres */
+  .menu-tete { background:var(--noir); }
+  .m-accueil { background:var(--noir); }
+  .m-ligne { background:#fff; border:1px solid var(--bord); }
+  .m-ligne:hover { background:#f1f0eb; }
 
-.cat:active {
-  transform: scale(0.98);
-}
-
-/* Titres plus lisibles */
-h2 {
-  font-size: 1.25rem;
-  letter-spacing: 1.2px;
-  margin-bottom: 26px;
-}
-
-/* Espacement adapté aux téléphones */
-@media (max-width: 480px) {
-  .hero {
-    padding: 54px 20px;
-    min-height: 300px;
-  }
-
-  .hero h1 {
-    font-size: 2.5rem;
-  }
-
-  .hero p {
-    font-size: 0.95rem;
-  }
-
-  .hero .btn {
-    padding: 12px 16px;
-  }
-
-  section {
-    padding: 36px 16px;
-  }
-}
+  /* Bulle de chat, bandeau cookies */
+  #chat-btn { background:var(--noir); border:1px solid var(--or); box-shadow:0 6px 20px rgba(0,0,0,.25); }
+  .chat-head { background:var(--noir); color:#f3efe4; }
+  #cookies { background:var(--noir); border:1px solid #2a2a2a; }
 </style>
 </head>
 <body>

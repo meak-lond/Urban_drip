@@ -56,6 +56,11 @@
   .g-mode { border:1px solid var(--noir); background:#fff; color:var(--noir); padding:8px 14px; font-family:inherit; font-size:.75rem; font-weight:600; cursor:pointer; }
   .g-mode.actif { background:var(--noir); color:#fff; }
   .graph { width:100%; height:auto; display:block; }
+  .anneau { width:100%; max-width:220px; height:auto; display:block; margin:6px auto 0; }
+  .g-legende { display:grid; grid-template-columns:1fr 1fr; gap:12px 16px; margin-top:14px; font-size:.8rem; }
+  .g-leg { display:flex; gap:8px; align-items:stretch; }
+  .g-sw { width:4px; flex:none; }
+  .g-leg b { display:block; font-size:1.05rem; }
   #attente { padding-left:0; list-style:none; }
   .attente-item { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; background:var(--gris); padding:12px; margin-bottom:8px; font-size:.85rem; }
   .btn.petit { width:auto; padding:10px 14px; margin-top:0; font-size:.75rem; }
@@ -251,10 +256,7 @@
 
     liste(vider($('recos')), x.recos, 'Rien à signaler pour le moment.');
 
-    barresH($('statuts'),
-      Object.keys(STATUTS).filter(function (k) { return d.statuts[k]; })
-        .map(function (k) { return { l: STATUTS[k], v: Number(d.statuts[k]) }; }),
-      'Aucune commande sur la période.', String);
+    graphiqueStatuts($('statuts'), d);
 
     barresH($('top'),
       (d.top_articles || []).map(function (a) { return { l: a.nom + ' · ' + a.quantite + ' vendu(s)', v: Number(a.ca) || 0 }; }),
@@ -351,6 +353,19 @@
     c.appendChild(v); c.appendChild(l); parent.appendChild(c);
   }
 
+  // Courbe lissée passant par tous les points (Bézier cubique)
+  function courbeLissee(pts) {
+    if (pts.length < 2) { return 'M ' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1); }
+    var d = 'M ' + pts[0][0].toFixed(1) + ' ' + pts[0][1].toFixed(1);
+    for (var i = 0; i < pts.length - 1; i++) {
+      var p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+      var c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+      var c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+      d += ' C ' + c1x.toFixed(1) + ' ' + c1y.toFixed(1) + ', ' + c2x.toFixed(1) + ' ' + c2y.toFixed(1) + ', ' + p2[0].toFixed(1) + ' ' + p2[1].toFixed(1);
+    }
+    return d;
+  }
+
   function graphiqueJours(parent, jours) {
     vider(parent);
     if (!jours.length) { liste(parent, [], 'Aucune donnée sur la période.'); return; }
@@ -426,12 +441,12 @@
         var y = haut + hauteur - f * hauteur;
         svg.appendChild(svgEl('line', { x1: gauche, y1: y, x2: W - droite, y2: y, stroke: '#e6e6e6' }));
         var t = svgEl('text', { x: gauche - 6, y: y + 4, 'text-anchor': 'end', 'font-size': '11', fill: '#666' });
-        t.textContent = FK(f * yMax);
+        t.textContent = FK(f * yMax) + (f * yMax >= 1000 ? ' FCFA' : '');
         svg.appendChild(t);
       });
 
       var pts = vals.map(function (v, i) { return [xDe(i), yDe(v)]; });
-      var ligne = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+      var ligne = courbeLissee(pts);
       var aire = ligne + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + base + ' L ' + pts[0][0].toFixed(1) + ' ' + base + ' Z';
       svg.appendChild(svgEl('path', { d: aire, fill: '#14803c', 'fill-opacity': '0.12' }));
       svg.appendChild(svgEl('path', { d: ligne, fill: 'none', stroke: '#14803c', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
@@ -484,6 +499,50 @@
       jours.filter(function (j) { return Number(j.ca) > 0; })
         .map(function (j) { return D(new Date(j.jour)) + ' · ' + F(j.ca) + ' · ' + j.commandes + ' commande(s)'; }),
       'Aucune vente sur la période.');
+  }
+
+  function graphiqueStatuts(parent, d) {
+    vider(parent);
+    var COUL = {
+      en_attente: '#e07b00', payee: '#14803c', confirmee: '#14803c', en_preparation: '#d9b400',
+      expediee: '#5b8def', livree: '#0b0b0b', annulee: '#b9b5aa', remboursee: '#c0392b'
+    };
+    var items = Object.keys(STATUTS).filter(function (k) { return d.statuts[k]; })
+      .map(function (k) { return { l: STATUTS[k], v: Number(d.statuts[k]), c: COUL[k] || '#999' }; });
+    var total = items.reduce(function (s, i) { return s + i.v; }, 0);
+    if (!total) { liste(parent, [], 'Aucune commande sur la période.'); return; }
+
+    var R = 80, circ = 2 * Math.PI * R, decalage = 0;
+    var svg = svgEl('svg', { viewBox: '0 0 200 200', 'class': 'anneau', role: 'img', 'aria-label': 'Répartition des commandes par statut' });
+    items.forEach(function (i) {
+      var part = i.v / total;
+      svg.appendChild(svgEl('circle', {
+        cx: 100, cy: 100, r: R, fill: 'none', stroke: i.c, 'stroke-width': 26,
+        'stroke-dasharray': (part * circ) + ' ' + circ,
+        'stroke-dashoffset': String(-decalage * circ),
+        transform: 'rotate(-90 100 100)'
+      }));
+      decalage += part;
+    });
+    var c1 = svgEl('text', { x: 100, y: 98, 'text-anchor': 'middle', 'font-size': '26', 'font-weight': '700', fill: '#0b0b0b' });
+    c1.textContent = String(total);
+    var c2 = svgEl('text', { x: 100, y: 118, 'text-anchor': 'middle', 'font-size': '11', fill: '#666' });
+    c2.textContent = 'commandes';
+    svg.appendChild(c1); svg.appendChild(c2);
+    parent.appendChild(svg);
+
+    var leg = document.createElement('div'); leg.className = 'g-legende';
+    items.forEach(function (i) {
+      var row = document.createElement('div'); row.className = 'g-leg';
+      var sw = document.createElement('div'); sw.className = 'g-sw'; sw.style.background = i.c;
+      var txt = document.createElement('div');
+      var l = document.createElement('div'); l.textContent = i.l;
+      var v = document.createElement('b'); v.textContent = String(i.v);
+      txt.appendChild(l); txt.appendChild(v);
+      row.appendChild(sw); row.appendChild(txt);
+      leg.appendChild(row);
+    });
+    parent.appendChild(leg);
   }
 
   async function chargerAttente() {
