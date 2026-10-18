@@ -52,6 +52,9 @@
   .g-detail { background:var(--noir); color:#fff; padding:12px 14px; margin:12px 0; font-size:.85rem; min-height:4.2em; }
   .g-detail .t { font-weight:700; margin-bottom:2px; }
   .g-titre { font-size:.75rem; text-transform:uppercase; letter-spacing:1px; font-weight:700; margin:16px 0 6px; }
+  .g-modes { display:flex; gap:8px; margin:0 0 10px; }
+  .g-mode { border:1px solid var(--noir); background:#fff; color:var(--noir); padding:8px 14px; font-family:inherit; font-size:.75rem; font-weight:600; cursor:pointer; }
+  .g-mode.actif { background:var(--noir); color:#fff; }
   .graph { width:100%; height:auto; display:block; }
   #attente { padding-left:0; list-style:none; }
   .attente-item { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; background:var(--gris); padding:12px; margin-bottom:8px; font-size:.85rem; }
@@ -358,6 +361,8 @@
       total += v; cmd += Number(j.commandes) || 0;
       if (v > maxCa) { maxCa = v; meilleur = i; }
     });
+    var cumuls = [], courant = 0;
+    jours.forEach(function (j) { courant += Number(j.ca) || 0; cumuls.push(courant); });
 
     var resume = document.createElement('div'); resume.className = 'g-resume';
     mini(resume, "Chiffre d'affaires", F(total));
@@ -365,63 +370,112 @@
     mini(resume, 'Meilleur jour', maxCa > 0 ? D(new Date(jours[meilleur].jour)) : '—');
     parent.appendChild(resume);
 
+    var modes = document.createElement('div'); modes.className = 'g-modes';
+    var bPar = document.createElement('button'); bPar.className = 'g-mode actif'; bPar.textContent = 'Par jour';
+    var bCum = document.createElement('button'); bCum.className = 'g-mode'; bCum.textContent = 'Cumulé';
+    modes.appendChild(bPar); modes.appendChild(bCum);
+    parent.appendChild(modes);
+
     var detail = document.createElement('div'); detail.className = 'g-detail';
     parent.appendChild(detail);
 
-    var W = 600, H = 230, haut = 10, bas = 26, gauche = 46, droite = 6;
+    var zone = document.createElement('div');
+    parent.appendChild(zone);
+
+    var W = 600, H = 230, haut = 10, bas = 26, gauche = 46, droite = 8;
     var hauteur = H - haut - bas, largeur = W - gauche - droite;
-    var yMax = niveauMax(maxCa);
-    var slot = largeur / n;
-    var bw = Math.max(3, slot * 0.62);
+    var pas = n > 1 ? largeur / (n - 1) : 0;
+    var mode = 'jour', sel = meilleur;
 
-    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, 'class': 'graph', role: 'img', 'aria-label': "Chiffre d'affaires par jour" });
+    function valeurs() {
+      return mode === 'cumul' ? cumuls : jours.map(function (j) { return Number(j.ca) || 0; });
+    }
+    function xDe(i) { return n > 1 ? gauche + i * pas : gauche + largeur / 2; }
 
-    // Grille et axe des valeurs
-    [0, 0.5, 1].forEach(function (f) {
-      var y = haut + hauteur - f * hauteur;
-      svg.appendChild(svgEl('line', { x1: gauche, y1: y, x2: W - droite, y2: y, stroke: '#e6e6e6' }));
-      var t = svgEl('text', { x: gauche - 6, y: y + 4, 'text-anchor': 'end', 'font-size': '11', fill: '#666' });
-      t.textContent = FK(f * yMax);
-      svg.appendChild(t);
-    });
-
-    var barres = [];
-    jours.forEach(function (j, i) {
-      var v = Number(j.ca) || 0;
-      var h = v / yMax * hauteur;
-      var x = gauche + i * slot + (slot - bw) / 2;
-      var barre = svgEl('rect', { x: x, y: haut + hauteur - h, width: bw, height: h, fill: v > 0 ? '#111' : '#e3e3e3' });
-      svg.appendChild(barre); barres.push(barre);
-
-      // Zone transparente plus large que la barre, pour toucher facilement
-      var zone = svgEl('rect', { x: gauche + i * slot, y: haut, width: slot, height: hauteur, fill: '#000', 'fill-opacity': '0', style: 'cursor:pointer' });
-      zone.addEventListener('click', function () { choisir(i); });
-      svg.appendChild(zone);
-
-      if (i % Math.ceil(n / 7) === 0) {
-        var lab = svgEl('text', { x: gauche + i * slot + slot / 2, y: H - 6, 'text-anchor': 'middle', 'font-size': '11', fill: '#666' });
-        lab.textContent = new Date(j.jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
-        svg.appendChild(lab);
-      }
-    });
-
-    function choisir(i) {
-      barres.forEach(function (r, k) {
-        var v = Number(jours[k].ca) || 0;
-        r.setAttribute('fill', k === i ? '#14803c' : (v > 0 ? '#111' : '#e3e3e3'));
-      });
-      var j = jours[i], v = Number(j.ca) || 0, c = Number(j.commandes) || 0;
+    function majDetail() {
+      var j = jours[sel], v = Number(j.ca) || 0, c = Number(j.commandes) || 0;
       detail.textContent = '';
       var t = document.createElement('div'); t.className = 't'; t.textContent = D(new Date(j.jour));
       var l = document.createElement('div');
-      l.textContent = v > 0
-        ? "Chiffre d'affaires : " + F(v) + ' · ' + c + ' commande(s) · panier moyen ' + F(v / c)
-        : 'Aucune vente ce jour-là';
+      if (mode === 'cumul') {
+        l.textContent = 'Cumul depuis le début : ' + F(cumuls[sel]) + ' · dont ce jour : ' + F(v);
+      } else {
+        l.textContent = v > 0
+          ? "Chiffre d'affaires : " + F(v) + ' · ' + c + ' commande(s) · panier moyen ' + F(v / c)
+          : 'Aucune vente ce jour-là';
+      }
       detail.appendChild(t); detail.appendChild(l);
     }
 
-    parent.appendChild(svg);
-    choisir(meilleur);
+    function choisir(i) { sel = i; majDetail(); dessiner(); }
+
+    function dessiner() {
+      vider(zone);
+      var vals = valeurs();
+      var yMax = niveauMax(Math.max.apply(null, vals) || 0);
+      function yDe(v) { return haut + hauteur - (v / yMax) * hauteur; }
+      var base = haut + hauteur;
+
+      var svg = svgEl('svg', {
+        viewBox: '0 0 ' + W + ' ' + H, 'class': 'graph', role: 'img',
+        'aria-label': mode === 'cumul' ? "Chiffre d'affaires cumulé" : "Chiffre d'affaires par jour"
+      });
+
+      // Grille et axe des valeurs
+      [0, 0.5, 1].forEach(function (f) {
+        var y = haut + hauteur - f * hauteur;
+        svg.appendChild(svgEl('line', { x1: gauche, y1: y, x2: W - droite, y2: y, stroke: '#e6e6e6' }));
+        var t = svgEl('text', { x: gauche - 6, y: y + 4, 'text-anchor': 'end', 'font-size': '11', fill: '#666' });
+        t.textContent = FK(f * yMax);
+        svg.appendChild(t);
+      });
+
+      var pts = vals.map(function (v, i) { return [xDe(i), yDe(v)]; });
+      var ligne = pts.map(function (p, i) { return (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' ');
+      var aire = ligne + ' L ' + pts[pts.length - 1][0].toFixed(1) + ' ' + base + ' L ' + pts[0][0].toFixed(1) + ' ' + base + ' Z';
+      svg.appendChild(svgEl('path', { d: aire, fill: '#14803c', 'fill-opacity': '0.12' }));
+      svg.appendChild(svgEl('path', { d: ligne, fill: 'none', stroke: '#14803c', 'stroke-width': '2.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+
+      // Curseur du jour sélectionné
+      svg.appendChild(svgEl('line', { x1: pts[sel][0], y1: haut, x2: pts[sel][0], y2: base, stroke: '#111', 'stroke-dasharray': '3 3', 'stroke-width': '1' }));
+
+      pts.forEach(function (p, i) {
+        var actif = (i === sel);
+        svg.appendChild(svgEl('circle', { cx: p[0], cy: p[1], r: actif ? 5 : 3, fill: actif ? '#14803c' : '#fff', stroke: '#14803c', 'stroke-width': '2' }));
+      });
+
+      // Étiquettes de dates
+      pts.forEach(function (p, i) {
+        if (i % Math.ceil(n / 7) === 0) {
+          var lab = svgEl('text', { x: p[0], y: H - 6, 'text-anchor': 'middle', 'font-size': '11', fill: '#666' });
+          lab.textContent = new Date(jours[i].jour).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+          svg.appendChild(lab);
+        }
+      });
+
+      // Zones de toucher : chaque jour réagit au clic, au toucher et au survol
+      pts.forEach(function (p, i) {
+        var largeurZone = n > 1 ? pas : largeur;
+        var z = svgEl('rect', { x: p[0] - largeurZone / 2, y: haut, width: largeurZone, height: hauteur, fill: '#000', 'fill-opacity': '0', style: 'cursor:pointer' });
+        z.addEventListener('click', function () { choisir(i); });
+        z.addEventListener('mouseenter', function () { choisir(i); });
+        svg.appendChild(z);
+      });
+
+      zone.appendChild(svg);
+    }
+
+    bPar.addEventListener('click', function () {
+      mode = 'jour'; bPar.classList.add('actif'); bCum.classList.remove('actif');
+      majDetail(); dessiner();
+    });
+    bCum.addEventListener('click', function () {
+      mode = 'cumul'; bCum.classList.add('actif'); bPar.classList.remove('actif');
+      majDetail(); dessiner();
+    });
+
+    majDetail();
+    dessiner();
 
     var titre = document.createElement('div'); titre.className = 'g-titre'; titre.textContent = 'Jours avec ventes';
     parent.appendChild(titre);
