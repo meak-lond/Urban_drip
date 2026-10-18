@@ -300,6 +300,17 @@
   .skip:focus { left:8px; top:8px; }
   :focus-visible { outline:2px solid var(--vert); outline-offset:2px; }
   input, select, textarea, .recherche input, .newsletter input, .compte input, .dob select, .esp-champ, .compte select, .chat-saisie input { font-size:16px; }
+  .fiche .photo { position:relative; }
+  .coeur-f { position:absolute; top:8px; right:8px; width:34px; height:34px; border-radius:50%; border:none; background:rgba(255,255,255,.92); color:var(--noir); display:flex; align-items:center; justify-content:center; cursor:pointer; z-index:1; }
+  .coeur-f .ic { width:18px; height:18px; }
+  .coeur-f.actif { color:var(--vert); }
+  .coeur-f.actif .ic { fill:currentColor; }
+  #favoris-fond { display:none; position:fixed; inset:0; background:var(--blanc); z-index:22; }
+  #favoris-fond.open { display:flex; align-items:stretch; justify-content:stretch; }
+  .fav-ligne { flex-wrap:wrap; gap:10px; }
+  .fav-actions { display:flex; gap:8px; flex-wrap:wrap; width:100%; }
+  .fav-actions .btn { width:auto; margin-top:0; }
+  #nb-favoris:not(:empty) { position:absolute; top:-7px; right:-9px; background:var(--vert); color:#fff; border-radius:10px; font-size:.65rem; min-width:16px; padding:1px 4px; text-align:center; line-height:1.3; }
 </style>
 </head>
 <body>
@@ -336,7 +347,7 @@
   <div class="gauche"><span id="btn-menu" role="button" aria-label="Menu"><svg class="ic"><use href="#i-menu"/></svg></span><div class="logo">URBAN<span>DRIP</span></div></div>
   <div class="icones">
     <span id="btn-recherche" role="button" aria-label="Rechercher"><svg class="ic"><use href="#i-search"/></svg></span>
-    <span role="button" aria-label="Favoris"><svg class="ic"><use href="#i-heart"/></svg></span>
+    <span id="btn-favoris" role="button" aria-label="Mes favoris"><svg class="ic"><use href="#i-heart"/></svg><sup id="nb-favoris"></sup></span>
     <span id="btn-compte" role="button" aria-label="Mon compte"><svg class="ic"><use href="#i-user"/></svg><em id="nom-compte"></em></span>
     <span id="btn-panier" role="button" aria-label="Panier"><svg class="ic"><use href="#i-bag"/></svg><sup id="nb-panier"></sup></span>
   </div>
@@ -517,6 +528,14 @@
   <div class="feuille">
     <span class="fermer-f" id="options-fermer" role="button" aria-label="Fermer">×</span>
     <div id="options-corps"></div>
+  </div>
+</div>
+
+<div id="favoris-fond">
+  <div class="compte">
+    <span class="fermer" id="favoris-fermer" role="button" aria-label="Fermer">×</span>
+    <h3>Mes favoris</h3>
+    <div id="favoris-corps"></div>
   </div>
 </div>
 
@@ -730,6 +749,13 @@
     inf.appendChild(pr);
     var b = el('button', 'btn petit', 'Ajouter');
     b.addEventListener('click', function () { choisirOptions(p); });
+    var coeur = el('button', 'coeur-f');
+    coeur.setAttribute('data-fav', p.id);
+    coeur.setAttribute('aria-label', 'Ajouter aux favoris');
+    coeur.appendChild(icone('heart'));
+    if (favori(p.id)) { coeur.classList.add('actif'); }
+    coeur.addEventListener('click', function (e) { e.stopPropagation(); basculerFavori(p); });
+    ph.appendChild(coeur);
     c.appendChild(ph); c.appendChild(inf); c.appendChild(b);
     ph.style.cursor = 'pointer'; inf.style.cursor = 'pointer';
     ph.addEventListener('click', function () { ouvrirFiche(p); });
@@ -901,9 +927,9 @@
   $('panier-fond').addEventListener('click', function (e) { if (e.target === $('panier-fond')) fermerPanier(); });
 
   if (db) {
-    db.auth.getSession().then(function (r) { utilisateur = r.data.session ? r.data.session.user : null; majMenuCompte(); setTimeout(verifierProfil, 0); });
+    db.auth.getSession().then(function (r) { utilisateur = r.data.session ? r.data.session.user : null; majMenuCompte(); setTimeout(verifierProfil, 0); chargerFavoris(); });
     db.auth.onAuthStateChange(function (evt, session) {
-      utilisateur = session ? session.user : null; majMenuCompte(); setTimeout(verifierProfil, 0);
+      utilisateur = session ? session.user : null; majMenuCompte(); setTimeout(verifierProfil, 0); chargerFavoris();
       if ($('panier-fond').classList.contains('open')) dessinerPanier();
     });
   }
@@ -1201,6 +1227,10 @@
       ajout.textContent = 'Ajouté au panier';
       setTimeout(function () { ajout.textContent = 'Ajouter au panier'; }, 1500);
     });
+    var fb = el('button', 'btn clair fav-texte', favori(p.id) ? 'Retirer des favoris' : 'Ajouter aux favoris');
+    fb.setAttribute('data-fav-id', p.id);
+    fb.addEventListener('click', function () { basculerFavori(p); });
+    c.appendChild(fb);
     c.appendChild(ajout); c.appendChild(etat);
 
     var liv = cfg('INFO_LIVRAISON');
@@ -1462,6 +1492,73 @@
     ['options-fond', 'fiche-fond', 'profil-fond', 'espace-fond', 'panier-fond', 'compte-fond', 'menu', 'menu-fond', 'chat-box'].forEach(function (id) { $(id).classList.remove('open'); });
     document.body.classList.remove('menu-ouvert');
   });
+
+  // ===== Favoris =====
+  var favoris = {};
+  function favori(id) { return !!favoris[id]; }
+
+  function majCoeurs() {
+    document.querySelectorAll('[data-fav]').forEach(function (b) {
+      var on = favori(b.getAttribute('data-fav'));
+      b.classList.toggle('actif', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    document.querySelectorAll('.fav-texte').forEach(function (b) {
+      b.textContent = favori(b.getAttribute('data-fav-id')) ? 'Retirer des favoris' : 'Ajouter aux favoris';
+    });
+    var n = Object.keys(favoris).length;
+    $('nb-favoris').textContent = n ? String(n) : '';
+  }
+
+  async function chargerFavoris() {
+    favoris = {};
+    if (db && utilisateur) {
+      var r = await db.from('favoris').select('produit_id');
+      if (!r.error) { (r.data || []).forEach(function (x) { favoris[x.produit_id] = true; }); }
+    }
+    majCoeurs();
+    if (produits.length) { afficherProduits(); }
+  }
+
+  async function basculerFavori(p) {
+    if (!utilisateur || !db) { ouvrir(); return; }
+    if (favori(p.id)) {
+      var r = await db.from('favoris').delete().eq('user_id', utilisateur.id).eq('produit_id', p.id);
+      if (r.error) { return; }
+      delete favoris[p.id];
+    } else {
+      var x = await db.from('favoris').insert({ user_id: utilisateur.id, produit_id: p.id });
+      if (x.error) { return; }
+      favoris[p.id] = true;
+    }
+    majCoeurs();
+  }
+
+  function ouvrirFavoris() {
+    if (!utilisateur) { ouvrir(); return; }
+    var c = $('favoris-corps'); c.textContent = '';
+    var items = produits.filter(function (p) { return favori(p.id); });
+    if (!items.length) {
+      c.appendChild(el('p', '', 'Aucun favori pour le moment. Touche le cœur d’un article pour le garder ici.'));
+    }
+    items.forEach(function (p) {
+      var row = el('div', 'ligne-panier fav-ligne');
+      var inf = el('div', 'nom-l', p.nom);
+      inf.appendChild(el('div', 'prix', fcfa(p.prix)));
+      var acts = el('div', 'fav-actions');
+      var add = el('button', 'btn petit', 'Ajouter au panier');
+      add.addEventListener('click', function () { choisirOptions(p); });
+      var del = el('button', 'btn clair petit', 'Retirer');
+      del.addEventListener('click', function () { basculerFavori(p).then(ouvrirFavoris); });
+      acts.appendChild(add); acts.appendChild(del);
+      row.appendChild(inf); row.appendChild(acts);
+      c.appendChild(row);
+    });
+    $('favoris-fond').classList.add('open');
+  }
+
+  $('btn-favoris').addEventListener('click', ouvrirFavoris);
+  $('favoris-fermer').addEventListener('click', function () { $('favoris-fond').classList.remove('open'); });
 
   $('champ-recherche').addEventListener('input', function () {
     var avant = terme;
