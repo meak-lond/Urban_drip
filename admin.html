@@ -39,6 +39,9 @@
   #recos li { background:var(--gris); padding:10px 12px; margin-bottom:8px; border-left:3px solid var(--vert); }
   #recos li.nul { background:none; border:none; color:#666; }
   .stock-bloc { margin-top:10px; }
+  #attente { padding-left:0; list-style:none; }
+  .attente-item { display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:8px; background:var(--gris); padding:12px; margin-bottom:8px; font-size:.85rem; }
+  .btn.petit { width:auto; padding:10px 14px; margin-top:0; font-size:.75rem; }
   @media (max-width:360px) { .cartes { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -71,6 +74,9 @@
 
     <h3>Vue d'ensemble</h3>
     <div class="cartes" id="indicateurs"></div>
+
+    <h3>Paiements à confirmer</h3>
+    <ul class="liste" id="attente"></ul>
 
     <h3>Recommandations</h3>
     <ul class="liste" id="recos"></ul>
@@ -262,12 +268,33 @@
       var c = calc(r[0]), cp = calc(r[1]);
       dernier = { d: r[0], dp: r[1], b: b, c: c, cp: cp, recos: recommandations(r[0], r[1], c, cp) };
       afficher(dernier);
+      await chargerAttente();
     } catch (e) {
       var m = (e && e.message) ? e.message : '';
       $('ad-msg2').textContent = /acces refuse/i.test(m)
         ? "Accès refusé : ce compte n'est pas administrateur."
         : 'Impossible de charger le rapport : ' + m;
     }
+  }
+
+  async function chargerAttente() {
+    var zone = vider($('attente'));
+    var r = await db.rpc('commandes_en_attente');
+    if (r.error) { $('ad-msg2').textContent = 'Paiements : ' + r.error.message; return; }
+    if (!r.data.length) { liste(zone, [], 'Aucun paiement à confirmer.'); return; }
+    r.data.forEach(function (c) {
+      var li = document.createElement('li'); li.className = 'attente-item';
+      var t = document.createElement('span');
+      t.textContent = 'Commande n°' + c.id + ' · ' + F(c.total) + ' · ' + c.telephone + ' · ' + D(new Date(c.cree_le));
+      var b = document.createElement('button'); b.className = 'btn petit'; b.textContent = 'Marquer payée';
+      b.addEventListener('click', async function () {
+        b.disabled = true;
+        var x = await db.rpc('marquer_payee', { p_id: c.id });
+        if (x.error) { b.disabled = false; $('ad-msg2').textContent = 'Impossible : ' + x.error.message; return; }
+        await lancer(periode);
+      });
+      li.appendChild(t); li.appendChild(b); zone.appendChild(li);
+    });
   }
 
   function montrer(id) {
