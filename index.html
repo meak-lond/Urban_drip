@@ -931,6 +931,27 @@
     if (codePromo) { resume('Code ' + codePromo.code, '− ' + fcfa(codePromo.remise)); }
     var remiseAppliquee = codePromo ? codePromo.remise : 0;
     resume('Total de la commande :', fcfa(valeur - remiseAppliquee + (frais || 0)), true);
+    var promoZone = el('div', 'promo-zone');
+    var pligne = el('div', 'promo-ligne');
+    var pin = el('input'); pin.type = 'text'; pin.id = 'promo-code'; pin.placeholder = 'Code promo';
+    pin.value = codePromo ? codePromo.code : '';
+    pin.setAttribute('autocapitalize', 'characters');
+    var pbtn = el('button', 'btn clair petit', codePromo ? 'Retirer' : 'Appliquer');
+    var pmsg = el('p', 'promo-msg');
+    pbtn.addEventListener('click', async function () {
+      if (codePromo) { codePromo = null; dessinerPanier(); return; }
+      if (!utilisateur) { ouvrir(); return; }
+      var code = pin.value.trim();
+      if (!code) { pmsg.textContent = 'Entre un code.'; return; }
+      var v = await db.rpc('verifier_code', { p_code: code, p_total: totalPanier() });
+      if (v.error) { pmsg.textContent = 'Vérification impossible pour le moment.'; return; }
+      if (!v.data.valide) { pmsg.textContent = v.data.message; return; }
+      codePromo = { code: code.toUpperCase(), remise: v.data.remise };
+      dessinerPanier();
+    });
+    pligne.appendChild(pin); pligne.appendChild(pbtn);
+    promoZone.appendChild(pligne); promoZone.appendChild(pmsg);
+    zb.appendChild(promoZone);
     if (!commandesOuvertes()) {
       zb.appendChild(el('p', '', "Les commandes ouvrent bientôt. Garde ton panier : tu pourras commander dès l'ouverture."));
       return;
@@ -949,26 +970,6 @@
       zb.appendChild(bp);
       return;
     }
-    var promoZone = el('div', 'promo-zone');
-    var pligne = el('div', 'promo-ligne');
-    var pin = el('input'); pin.type = 'text'; pin.id = 'promo-code'; pin.placeholder = 'Code promo';
-    pin.value = codePromo ? codePromo.code : '';
-    pin.setAttribute('autocapitalize', 'characters');
-    var pbtn = el('button', 'btn clair petit', codePromo ? 'Retirer' : 'Appliquer');
-    var pmsg = el('p', 'promo-msg');
-    pbtn.addEventListener('click', async function () {
-      if (codePromo) { codePromo = null; dessinerPanier(); return; }
-      var code = pin.value.trim();
-      if (!code) { pmsg.textContent = 'Entre un code.'; return; }
-      var v = await db.rpc('verifier_code', { p_code: code, p_total: totalPanier() });
-      if (v.error) { pmsg.textContent = 'Vérification impossible pour le moment.'; return; }
-      if (!v.data.valide) { pmsg.textContent = v.data.message; return; }
-      codePromo = { code: code.toUpperCase(), remise: v.data.remise };
-      dessinerPanier();
-    });
-    pligne.appendChild(pin); pligne.appendChild(pbtn);
-    promoZone.appendChild(pligne); promoZone.appendChild(pmsg);
-    zb.appendChild(promoZone);
     var tel = el('input'); tel.id = 'cmd-tel'; tel.type = 'tel'; tel.placeholder = 'Ton numéro de téléphone';
     var adr = el('input'); adr.id = 'cmd-adr'; adr.type = 'text'; adr.placeholder = 'Adresse de livraison';
     if (profilDonnees) { tel.value = profilDonnees.telephone || ''; adr.value = profilDonnees.adresse || ''; }
