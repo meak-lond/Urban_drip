@@ -104,6 +104,22 @@
     </div>
   </section>
 
+  <section id="stock" hidden>
+    <h2 id="st-titre"></h2>
+    <p class="sous">Stock par taille et couleur. Le total met à jour le stock de l'article.</p>
+    <ul class="liste" id="st-liste"></ul>
+    <h3 class="lbl">Ajouter une variante</h3>
+    <div class="bloc-2">
+      <input id="st-taille" placeholder="Taille (ex. M)">
+      <input id="st-couleur" placeholder="Couleur (ex. Noir)">
+    </div>
+    <div class="actions">
+      <button class="btn" id="st-ajouter">Ajouter</button>
+      <button class="btn clair" id="st-retour">Retour</button>
+    </div>
+    <p class="msg" id="st-msg"></p>
+  </section>
+
   <section id="import" hidden>
     <h2>Importer des articles</h2>
     <p class="sous">Une ligne par article, séparateur « ; ». Ordre des colonnes :<br>
@@ -137,7 +153,7 @@
   var F = function (n) { return Math.round(Number(n) || 0).toLocaleString('fr-FR') + ' FCFA'; };
 
   function montrer(id) {
-    ['connexion', 'gestion', 'editeur', 'import'].forEach(function (x) { $(x).hidden = (x !== id); });
+    ['connexion', 'gestion', 'editeur', 'import', 'stock'].forEach(function (x) { $(x).hidden = (x !== id); });
   }
   function msg(id, texte, ok) { var m = $(id); m.textContent = texte; m.className = 'msg' + (ok ? ' ok' : ''); }
   function vider(e) { e.textContent = ''; return e; }
@@ -155,6 +171,7 @@
     var t = document.createElement('div'); t.className = 'art-txt';
     t.textContent = p.nom + ' · ' + (CATS[p.categorie] || p.categorie) + ' · ' + F(p.prix) + ' · stock ' + (p.stock || 0) + (p.disponible ? '' : ' · MASQUÉ');
     var acts = document.createElement('div'); acts.className = 'art-actions';
+    acts.appendChild(bouton('Stock', function () { ouvrirStock(p); }));
     acts.appendChild(bouton('Modifier', function () { ouvrirEditeur(p); }));
     acts.appendChild(bouton(p.disponible ? 'Masquer' : 'Publier', function () { basculer(p); }));
     li.appendChild(t); li.appendChild(acts);
@@ -311,6 +328,85 @@
     var ul = vider($('imp-erreurs'));
     erreurs.slice(0, 30).forEach(function (e) { var li = document.createElement('li'); li.textContent = e; li.style.padding = '6px 0'; ul.appendChild(li); });
   }
+
+  // ===== Stock par variante =====
+  var stockProduit = null;
+
+  async function ouvrirStock(p) {
+    stockProduit = p;
+    $('st-titre').textContent = 'Stock : ' + p.nom;
+    msg('st-msg', '', true);
+    montrer('stock');
+    chargerVariantes();
+  }
+
+  async function chargerVariantes() {
+    var ul = vider($('st-liste'));
+    var r = await db.from('variantes').select('*').eq('produit_id', stockProduit.id).order('taille');
+    if (r.error) { msg('st-msg', 'Erreur : ' + r.error.message, false); return; }
+    if (!(r.data || []).length) {
+      var v = document.createElement('li');
+      v.textContent = 'Aucune variante pour cet article. Ajoute-en une ci-dessous.';
+      v.style.padding = '12px 0';
+      ul.appendChild(v);
+      return;
+    }
+    r.data.forEach(function (x) {
+      var li = document.createElement('li'); li.className = 'art';
+      var t = document.createElement('div'); t.className = 'art-txt';
+      t.textContent = (x.taille || '—') + ' · ' + (x.couleur || '—');
+      var inp = document.createElement('input');
+      inp.type = 'number'; inp.min = '0'; inp.value = x.stock;
+      inp.style.width = '90px'; inp.style.padding = '8px';
+      var acts = document.createElement('div'); acts.className = 'art-actions';
+      acts.appendChild(inp);
+      acts.appendChild(bouton('OK', function () { enregistrerStock(x.id, inp.value); }));
+      acts.appendChild(bouton('Supprimer', function () { supprimerVariante(x.id); }));
+      li.appendChild(t); li.appendChild(acts);
+      ul.appendChild(li);
+    });
+  }
+
+  async function synchroniserStock() {
+    var r = await db.from('variantes').select('stock').eq('produit_id', stockProduit.id);
+    if (r.error) { return; }
+    var total = (r.data || []).reduce(function (somme, x) { return somme + (x.stock || 0); }, 0);
+    await db.from('produits').update({ stock: total }).eq('id', stockProduit.id);
+    stockProduit.stock = total;
+  }
+
+  async function enregistrerStock(id, valeur) {
+    var n = parseInt(valeur, 10);
+    if (isNaN(n) || n < 0) { msg('st-msg', 'Le stock doit être un nombre positif.', false); return; }
+    var r = await db.from('variantes').update({ stock: n }).eq('id', id);
+    if (r.error) { msg('st-msg', 'Erreur : ' + r.error.message, false); return; }
+    await synchroniserStock();
+    msg('st-msg', 'Stock enregistré. Total de l\'article : ' + stockProduit.stock, true);
+  }
+
+  async function supprimerVariante(id) {
+    var r = await db.from('variantes').delete().eq('id', id);
+    if (r.error) { msg('st-msg', 'Erreur : ' + r.error.message, false); return; }
+    await synchroniserStock();
+    msg('st-msg', 'Variante supprimée.', true);
+    chargerVariantes();
+  }
+
+  async function ajouterVariante() {
+    var taille = $('st-taille').value.trim(), couleur = $('st-couleur').value.trim();
+    if (!taille && !couleur) { msg('st-msg', 'Indique une taille ou une couleur.', false); return; }
+    var r = await db.from('variantes').insert({ produit_id: stockProduit.id, taille: taille, couleur: couleur, stock: 0 });
+    if (r.error) {
+      msg('st-msg', r.error.code === '23505' ? 'Cette variante existe déjà.' : 'Erreur : ' + r.error.message, false);
+      return;
+    }
+    $('st-taille').value = ''; $('st-couleur').value = '';
+    msg('st-msg', 'Variante ajoutée. Pense à renseigner son stock.', true);
+    chargerVariantes();
+  }
+
+  $('st-ajouter').addEventListener('click', ajouterVariante);
+  $('st-retour').addEventListener('click', function () { montrer('gestion'); charger(); });
 
   // ===== Connexion =====
   async function ouvrir() {
