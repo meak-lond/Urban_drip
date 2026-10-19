@@ -119,6 +119,9 @@
     <div class="cartes" id="stock"></div>
     <ul class="liste stock-bloc" id="alertes"></ul>
 
+    <h3>Codes promo utilisés</h3>
+    <ul class="liste" id="codes"></ul>
+
     <h3>Clients</h3>
     <div class="cartes" id="clients"></div>
 
@@ -239,6 +242,11 @@
     var d = x.d, dp = x.dp, c = x.c, cp = x.cp, b = x.b;
     $('periode-txt').textContent = b.titre + ' · du ' + D(b.debut) + ' au ' + D(b.fin);
     graphiqueJours($('graph-jours'), x.jours || []);
+    liste(vider($('codes')),
+      (x.codes || []).map(function (c) {
+        return c.code + ' · ' + c.commandes + ' commande(s) · remises : ' + F(c.remise_totale);
+      }),
+      'Aucun code promo utilisé sur la période.');
 
     var ind = vider($('indicateurs'));
     carte(ind, "Chiffre d'affaires net", F(c.net), evolution(c.net, cp.net));
@@ -287,9 +295,9 @@
     $('ad-msg2').textContent = '';
     var b = bornes(p), avant = precedent(b);
     try {
-      var r = await Promise.all([appeler(b), appeler(avant), ventesJours(b)]);
+      var r = await Promise.all([appeler(b), appeler(avant), ventesJours(b), codesUtilises(b)]);
       var c = calc(r[0]), cp = calc(r[1]);
-      dernier = { d: r[0], dp: r[1], jours: r[2], b: b, c: c, cp: cp, recos: recommandations(r[0], r[1], c, cp) };
+      dernier = { d: r[0], dp: r[1], jours: r[2], codes: r[3], b: b, c: c, cp: cp, recos: recommandations(r[0], r[1], c, cp) };
       afficher(dernier);
       await chargerAttente();
     } catch (e) {
@@ -298,6 +306,12 @@
         ? "Accès refusé : ce compte n'est pas administrateur."
         : 'Impossible de charger le rapport : ' + m;
     }
+  }
+
+  async function codesUtilises(b) {
+    var r = await db.rpc('codes_utilises', { debut: b.debut.toISOString(), fin: b.fin.toISOString() });
+    if (r.error) { throw r.error; }
+    return r.data || [];
   }
 
   async function ventesJours(b) {
