@@ -377,6 +377,11 @@
   #chat-btn { background:var(--noir); border:1px solid var(--or); box-shadow:0 6px 20px rgba(0,0,0,.25); }
   .chat-head { background:var(--noir); color:#f3efe4; }
   #cookies { background:var(--noir); border:1px solid #2a2a2a; }
+  .promo-zone { margin:14px 0 4px; }
+  .promo-ligne { display:flex; gap:8px; }
+  .promo-ligne input { flex:1; min-width:0; padding:12px; border:1px solid #ccc; font-family:inherit; font-size:16px; text-transform:uppercase; }
+  .promo-ligne .btn { width:auto; margin-top:0; }
+  .promo-msg { font-size:.82rem; color:#c0392b; min-height:1.1em; margin-top:6px; }
 </style>
 </head>
 <body>
@@ -739,6 +744,7 @@
   var filtre = null;
   var panier = {};
   var utilisateur = null;
+  var codePromo = null;
   try { panier = JSON.parse(localStorage.getItem('ud_panier') || '{}') || {}; } catch (e) { panier = {}; }
 
   function commandesOuvertes() { return typeof COMMANDES_OUVERTES !== 'undefined' && COMMANDES_OUVERTES === true; }
@@ -763,6 +769,7 @@
   function majBadge() { var n = nbArticles(); $('nb-panier').textContent = n ? String(n) : ''; }
   function ajouter(id, taille, couleur) { var k = cle(id, taille, couleur); panier[k] = (panier[k] || 0) + 1; sauverPanier(); majBadge(); }
   function changer(k, d) {
+    codePromo = null;
     var q = (panier[k] || 0) + d;
     if (q <= 0) { delete panier[k]; } else { panier[k] = q; }
     sauverPanier(); majBadge(); dessinerPanier();
@@ -921,7 +928,9 @@
     }
     resume('Valeur de la commande', fcfa(valeur));
     resume('Frais de livraison estimés', frais === null ? 'À confirmer' : fcfa(frais));
-    resume('Total de la commande :', fcfa(valeur + (frais || 0)), true);
+    if (codePromo) { resume('Code ' + codePromo.code, '− ' + fcfa(codePromo.remise)); }
+    var remiseAppliquee = codePromo ? codePromo.remise : 0;
+    resume('Total de la commande :', fcfa(valeur - remiseAppliquee + (frais || 0)), true);
     if (!commandesOuvertes()) {
       zb.appendChild(el('p', '', "Les commandes ouvrent bientôt. Garde ton panier : tu pourras commander dès l'ouverture."));
       return;
@@ -940,6 +949,26 @@
       zb.appendChild(bp);
       return;
     }
+    var promoZone = el('div', 'promo-zone');
+    var pligne = el('div', 'promo-ligne');
+    var pin = el('input'); pin.type = 'text'; pin.id = 'promo-code'; pin.placeholder = 'Code promo';
+    pin.value = codePromo ? codePromo.code : '';
+    pin.setAttribute('autocapitalize', 'characters');
+    var pbtn = el('button', 'btn clair petit', codePromo ? 'Retirer' : 'Appliquer');
+    var pmsg = el('p', 'promo-msg');
+    pbtn.addEventListener('click', async function () {
+      if (codePromo) { codePromo = null; dessinerPanier(); return; }
+      var code = pin.value.trim();
+      if (!code) { pmsg.textContent = 'Entre un code.'; return; }
+      var v = await db.rpc('verifier_code', { p_code: code, p_total: totalPanier() });
+      if (v.error) { pmsg.textContent = 'Vérification impossible pour le moment.'; return; }
+      if (!v.data.valide) { pmsg.textContent = v.data.message; return; }
+      codePromo = { code: code.toUpperCase(), remise: v.data.remise };
+      dessinerPanier();
+    });
+    pligne.appendChild(pin); pligne.appendChild(pbtn);
+    promoZone.appendChild(pligne); promoZone.appendChild(pmsg);
+    zb.appendChild(promoZone);
     var tel = el('input'); tel.id = 'cmd-tel'; tel.type = 'tel'; tel.placeholder = 'Ton numéro de téléphone';
     var adr = el('input'); adr.id = 'cmd-adr'; adr.type = 'text'; adr.placeholder = 'Adresse de livraison';
     if (profilDonnees) { tel.value = profilDonnees.telephone || ''; adr.value = profilDonnees.adresse || ''; }
@@ -963,9 +992,10 @@
     if (!L.length || !db) return;
     // Le serveur recalcule les prix : le navigateur n'envoie que les articles et les choix
     var articles = L.map(function (l) { return { id: l.p.id, qte: l.qte, taille: l.taille, couleur: l.couleur }; });
-    var r = await db.rpc('passer_commande', { p_articles: articles, p_telephone: tel, p_adresse: adr });
+    var r = await db.rpc('passer_commande', { p_articles: articles, p_telephone: tel, p_adresse: adr, p_code: codePromo ? codePromo.code : null });
     if (r.error) { m.textContent = 'La commande a échoué : ' + r.error.message; m.className = 'err'; return; }
     panier = {}; sauverPanier(); majBadge();
+    codePromo = null;
     confirmation(r.data.id, r.data.total);
   }
 
