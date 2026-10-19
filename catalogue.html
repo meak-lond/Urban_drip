@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Catalogue – Urban Drip</title>
+<style>
+  :root { --noir:#111; --blanc:#fff; --vert:#14803c; --gris:#f4f4f4; --bord:#e0e0e0; }
+  [hidden] { display:none !important; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Poppins', Arial, sans-serif; background:var(--blanc); color:var(--noir); line-height:1.45; min-height:100vh; }
+  header { display:flex; justify-content:space-between; align-items:center; padding:14px 18px; border-bottom:1px solid var(--bord); position:sticky; top:0; background:var(--blanc); z-index:2; }
+  .logo { font-weight:900; letter-spacing:2px; font-size:1.1rem; }
+  .logo span { color:var(--vert); }
+  .tag { font-size:.72rem; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:#555; }
+  main { max-width:760px; margin:0 auto; padding:18px 16px 60px; }
+  h2 { font-size:1.1rem; margin-bottom:12px; }
+  input, select, textarea { width:100%; padding:11px; border:1px solid #bbb; font-size:16px; font-family:inherit; background:#fff; color:var(--noir); }
+  textarea { min-height:110px; resize:vertical; }
+  .btn { display:inline-block; padding:12px 18px; background:var(--noir); color:#fff; border:2px solid var(--noir); font-family:inherit; font-weight:700; font-size:.8rem; text-transform:uppercase; letter-spacing:.06em; cursor:pointer; }
+  .btn:hover { background:var(--vert); border-color:var(--vert); }
+  .btn.clair { background:#fff; color:var(--noir); }
+  .btn.clair:hover { background:var(--noir); color:#fff; border-color:var(--noir); }
+  .btn.petit { padding:8px 12px; font-size:.7rem; }
+  .btn:disabled { opacity:.4; cursor:default; }
+  .bloc { display:grid; gap:8px; margin-bottom:12px; }
+  .bloc-2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .actions { display:flex; gap:8px; flex-wrap:wrap; margin:12px 0; }
+  .sous { font-size:.85rem; color:#555; margin:8px 0; }
+  .msg { font-size:.88rem; color:#c0392b; min-height:1.2em; margin:8px 0; }
+  .msg.ok { color:var(--vert); }
+  ul.liste { list-style:none; border-top:1px solid var(--bord); }
+  .art { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--bord); }
+  .art-txt { font-size:.88rem; overflow-wrap:anywhere; min-width:0; }
+  .art-actions { display:flex; gap:6px; flex:none; }
+  .pages { display:flex; justify-content:space-between; align-items:center; margin-top:14px; gap:8px; }
+  .lbl { display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#555; margin:12px 0 5px; }
+  .check { display:flex; gap:8px; align-items:center; margin:10px 0; font-size:.9rem; }
+  .check input { width:auto; }
+  .editeur-actions { display:flex; gap:8px; margin-top:16px; }
+  .editeur-actions .btn { flex:1; }
+  #connexion { max-width:360px; margin:40px auto; }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">URBAN<span>DRIP</span></span>
+  <span class="tag">Catalogue</span>
+</header>
+
+<main>
+
+  <section id="connexion" hidden>
+    <h2>Connexion administrateur</h2>
+    <div class="bloc">
+      <input type="email" id="ad-email" placeholder="E-mail" autocomplete="email">
+      <input type="password" id="ad-mdp" placeholder="Mot de passe" autocomplete="current-password">
+      <button class="btn" id="ad-entrer">Se connecter</button>
+    </div>
+    <p class="msg" id="ad-msg"></p>
+  </section>
+
+  <section id="gestion" hidden>
+    <div class="bloc-2">
+      <input type="search" id="f-recherche" placeholder="Rechercher un article">
+      <select id="f-categorie">
+        <option value="">Toutes catégories</option>
+        <option value="vetements">Vêtements</option>
+        <option value="chaussures">Chaussures</option>
+        <option value="bijoux">Bijoux</option>
+        <option value="bracelets">Bracelets</option>
+      </select>
+    </div>
+    <div class="bloc">
+      <select id="f-statut">
+        <option value="">Tous les articles</option>
+        <option value="dispo">Visibles sur le site</option>
+        <option value="indispo">Masqués</option>
+      </select>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-ajouter">+ Ajouter un article</button>
+      <button class="btn clair" id="btn-import">Importer (CSV)</button>
+      <button class="btn clair" id="btn-deco">Se déconnecter</button>
+    </div>
+    <p class="sous" id="compte"></p>
+    <p class="msg" id="gestion-msg"></p>
+    <ul class="liste" id="liste"></ul>
+    <div class="pages">
+      <button class="btn clair" id="page-prec">← Précédent</button>
+      <button class="btn clair" id="page-suiv">Suivant →</button>
+    </div>
+  </section>
+
+  <section id="editeur" hidden>
+    <h2 id="ed-titre"></h2>
+    <div id="ed-form"></div>
+    <p class="msg" id="ed-msg"></p>
+    <div class="editeur-actions">
+      <button class="btn clair" id="ed-annuler">Annuler</button>
+      <button class="btn" id="ed-enregistrer">Enregistrer</button>
+    </div>
+  </section>
+
+  <section id="import" hidden>
+    <h2>Importer des articles</h2>
+    <p class="sous">Une ligne par article, séparateur « ; ». Ordre des colonnes :<br>
+      <b>nom ; catégorie ; prix ; coût d'achat ; stock ; tailles ; couleurs ; photo ; description</b><br>
+      Catégories : vetements, chaussures, bijoux, bracelets. Tailles et couleurs séparées par « | » (ex. S|M|L). La première ligne peut être l'en-tête « nom ; … ».</p>
+    <textarea id="csv" placeholder="Hoodie noir;vetements;18000;9000;10;S|M|L;Noir|Blanc;images/hoodie-noir.jpg;Coupe ample"></textarea>
+    <div class="actions">
+      <button class="btn" id="imp-lancer">Importer</button>
+      <button class="btn clair" id="imp-retour">Retour</button>
+    </div>
+    <p class="msg" id="imp-msg"></p>
+    <ul class="liste" id="imp-erreurs"></ul>
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var db = null;
+  try {
+    if (typeof SUPABASE_URL === 'string' && SUPABASE_URL.indexOf('http') === 0) {
+      db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+  } catch (e) { db = null; }
+
+  var PAR = 40, page = 0, total = 0, editionId = null;
+  var CATS = { vetements: 'Vêtements', chaussures: 'Chaussures', bijoux: 'Bijoux', bracelets: 'Bracelets' };
+  var F = function (n) { return Math.round(Number(n) || 0).toLocaleString('fr-FR') + ' FCFA'; };
+
+  function montrer(id) {
+    ['connexion', 'gestion', 'editeur', 'import'].forEach(function (x) { $(x).hidden = (x !== id); });
+  }
+  function msg(id, texte, ok) { var m = $(id); m.textContent = texte; m.className = 'msg' + (ok ? ' ok' : ''); }
+  function vider(e) { e.textContent = ''; return e; }
+  function bouton(txt, fn, cls) {
+    var b = document.createElement('button');
+    b.className = 'btn petit ' + (cls || 'clair'); b.textContent = txt;
+    b.addEventListener('click', fn); return b;
+  }
+  function listeMots(v) { return String(v || '').split(/[,|]/).map(function (x) { return x.trim(); }).filter(Boolean); }
+  function num(v) { var n = parseInt(v, 10); return isNaN(n) ? null : n; }
+
+  // ===== Liste =====
+  function ligne(p) {
+    var li = document.createElement('li'); li.className = 'art';
+    var t = document.createElement('div'); t.className = 'art-txt';
+    t.textContent = p.nom + ' · ' + (CATS[p.categorie] || p.categorie) + ' · ' + F(p.prix) + ' · stock ' + (p.stock || 0) + (p.disponible ? '' : ' · MASQUÉ');
+    var acts = document.createElement('div'); acts.className = 'art-actions';
+    acts.appendChild(bouton('Modifier', function () { ouvrirEditeur(p); }));
+    acts.appendChild(bouton(p.disponible ? 'Masquer' : 'Publier', function () { basculer(p); }));
+    li.appendChild(t); li.appendChild(acts);
+    return li;
+  }
+
+  async function basculer(p) {
+    var r = await db.from('produits').update({ disponible: !p.disponible }).eq('id', p.id);
+    if (r.error) { msg('gestion-msg', 'Erreur : ' + r.error.message, false); return; }
+    charger();
+  }
+
+  async function charger() {
+    var recherche = $('f-recherche').value.trim().replace(/[%_,()]/g, '');
+    var cat = $('f-categorie').value, statut = $('f-statut').value;
+    var q = db.from('produits').select('*', { count: 'exact' }).order('cree_le', { ascending: false });
+    if (cat) { q = q.eq('categorie', cat); }
+    if (statut === 'dispo') { q = q.eq('disponible', true); }
+    if (statut === 'indispo') { q = q.eq('disponible', false); }
+    if (recherche) { q = q.ilike('nom', '%' + recherche + '%'); }
+    var r = await q.range(page * PAR, page * PAR + PAR - 1);
+    if (r.error) { msg('gestion-msg', 'Erreur : ' + r.error.message, false); return; }
+    msg('gestion-msg', '', true);
+    total = r.count || 0;
+    var liste = vider($('liste'));
+    (r.data || []).forEach(function (p) { liste.appendChild(ligne(p)); });
+    if (!(r.data || []).length) {
+      var v = document.createElement('li'); v.textContent = 'Aucun article.'; v.style.padding = '14px 0'; liste.appendChild(v);
+    }
+    $('compte').textContent = total + ' article(s) · page ' + (page + 1) + ' sur ' + Math.max(1, Math.ceil(total / PAR));
+    $('page-prec').disabled = page === 0;
+    $('page-suiv').disabled = (page + 1) * PAR >= total;
+  }
+
+  // ===== Éditeur =====
+  var CHAMPS = [
+    ['nom', 'Nom', 'text'],
+    ['categorie', 'Catégorie', 'select'],
+    ['prix', 'Prix (FCFA)', 'number'],
+    ['cout_achat', "Coût d'achat (FCFA)", 'number'],
+    ['stock', 'Stock', 'number'],
+    ['seuil_stock', "Seuil d'alerte", 'number'],
+    ['tailles', 'Tailles (séparées par des virgules)', 'text'],
+    ['couleurs', 'Couleurs (séparées par des virgules)', 'text'],
+    ['image_url', 'Photo (chemin ou lien https)', 'text'],
+    ['description', 'Description', 'textarea'],
+    ['matieres', 'Matières et entretien', 'text'],
+    ['ancien_prix', 'Ancien prix (si promo)', 'number'],
+    ['en_promo', 'En promotion', 'check'],
+    ['meilleure_vente', 'Meilleure vente', 'check'],
+    ['disponible', 'Visible sur le site', 'check']
+  ];
+
+  function remplirChamp(inp, type, v) {
+    if (type === 'check') { inp.checked = !!v; }
+    else if (type === 'select') { inp.value = v || 'vetements'; }
+    else if (Array.isArray(v)) { inp.value = v.join(', '); }
+    else { inp.value = (v === null || v === undefined) ? '' : v; }
+  }
+
+  function ouvrirEditeur(p) {
+    editionId = p ? p.id : null;
+    $('ed-titre').textContent = p ? 'Modifier : ' + p.nom : 'Nouvel article';
+    msg('ed-msg', '', true);
+    var f = vider($('ed-form'));
+    CHAMPS.forEach(function (c) {
+      var inp;
+      if (c[2] === 'select') {
+        inp = document.createElement('select');
+        Object.keys(CATS).forEach(function (k) { var o = document.createElement('option'); o.value = k; o.textContent = CATS[k]; inp.appendChild(o); });
+      } else if (c[2] === 'textarea') {
+        inp = document.createElement('textarea');
+      } else {
+        inp = document.createElement('input');
+        inp.type = c[2] === 'check' ? 'checkbox' : (c[2] === 'number' ? 'number' : 'text');
+      }
+      inp.id = 'ed-' + c[0];
+      if (p) { remplirChamp(inp, c[2], p[c[0]]); }
+      else { remplirChamp(inp, c[2], c[0] === 'disponible' ? true : (c[0] === 'categorie' ? 'vetements' : null)); }
+      if (c[2] === 'check') {
+        var wrap = document.createElement('label'); wrap.className = 'check';
+        wrap.appendChild(inp); wrap.appendChild(document.createTextNode(' ' + c[1]));
+        f.appendChild(wrap);
+      } else {
+        var lab = document.createElement('label'); lab.className = 'lbl'; lab.textContent = c[1];
+        f.appendChild(lab); f.appendChild(inp);
+      }
+    });
+    montrer('editeur');
+  }
+
+  function lireChamp(c) {
+    var inp = $('ed-' + c[0]);
+    return c[2] === 'check' ? inp.checked : inp.value;
+  }
+
+  async function enregistrer() {
+    var v = {};
+    CHAMPS.forEach(function (c) { v[c[0]] = lireChamp(c); });
+    if (!v.nom.trim()) { msg('ed-msg', 'Le nom est obligatoire.', false); return; }
+    var prix = num(v.prix);
+    if (!(prix > 0)) { msg('ed-msg', 'Le prix doit être supérieur à 0.', false); return; }
+    var payload = {
+      nom: v.nom.trim(), categorie: v.categorie, prix: prix,
+      cout_achat: num(v.cout_achat),
+      stock: num(v.stock) || 0,
+      seuil_stock: num(v.seuil_stock) || 0,
+      tailles: listeMots(v.tailles),
+      couleurs: listeMots(v.couleurs),
+      image_url: v.image_url.trim() || null,
+      description: v.description.trim() || null,
+      matieres: v.matieres.trim() || null,
+      ancien_prix: num(v.ancien_prix),
+      en_promo: v.en_promo, meilleure_vente: v.meilleure_vente, disponible: v.disponible
+    };
+    var r = editionId
+      ? await db.from('produits').update(payload).eq('id', editionId)
+      : await db.from('produits').insert(payload);
+    if (r.error) { msg('ed-msg', 'Erreur : ' + r.error.message, false); return; }
+    montrer('gestion');
+    charger();
+  }
+
+  // ===== Import CSV =====
+  async function importer() {
+    var lignes = $('csv').value.split(/\r?\n/).map(function (l) { return l.trim(); }).filter(Boolean);
+    if (lignes.length && /^nom\s*;/i.test(lignes[0])) { lignes.shift(); }
+    var lots = [], erreurs = [];
+    lignes.forEach(function (l, i) {
+      var n = i + 1;
+      var c = l.split(';').map(function (x) { return x.trim(); });
+      if (!c[0] || !CATS[c[1]]) { erreurs.push('Ligne ' + n + ' : nom ou catégorie invalide'); return; }
+      var prix = num(c[2]);
+      if (!(prix > 0)) { erreurs.push('Ligne ' + n + ' : prix invalide'); return; }
+      lots.push({
+        nom: c[0], categorie: c[1], prix: prix,
+        cout_achat: num(c[3]),
+        stock: num(c[4]) || 0,
+        tailles: listeMots(c[5]),
+        couleurs: listeMots(c[6]),
+        image_url: c[7] || null,
+        description: c[8] || null,
+        disponible: true
+      });
+    });
+    var ok = 0;
+    for (var k = 0; k < lots.length; k += 100) {
+      var tr = lots.slice(k, k + 100);
+      var r = await db.from('produits').insert(tr);
+      if (r.error) { erreurs.push('Lot à partir de la ligne ' + (k + 1) + ' : ' + r.error.message); }
+      else { ok += tr.length; }
+    }
+    msg('imp-msg', ok + ' article(s) importé(s).' + (erreurs.length ? ' ' + erreurs.length + ' erreur(s).' : ''), ok > 0 && !erreurs.length);
+    var ul = vider($('imp-erreurs'));
+    erreurs.slice(0, 30).forEach(function (e) { var li = document.createElement('li'); li.textContent = e; li.style.padding = '6px 0'; ul.appendChild(li); });
+  }
+
+  // ===== Connexion =====
+  async function ouvrir() {
+    if (!db) { msg('ad-msg', "Le site n'est pas relié à Supabase.", false); montrer('connexion'); return; }
+    var s = await db.auth.getSession();
+    if (!s.data.session) { montrer('connexion'); return; }
+    montrer('gestion');
+    charger();
+  }
+
+  $('ad-entrer').addEventListener('click', async function () {
+    msg('ad-msg', '', true);
+    var r = await db.auth.signInWithPassword({ email: $('ad-email').value.trim(), password: $('ad-mdp').value });
+    if (r.error) { msg('ad-msg', 'E-mail ou mot de passe incorrect.', false); return; }
+    $('ad-mdp').value = '';
+    ouvrir();
+  });
+  $('btn-deco').addEventListener('click', async function () { if (db) { await db.auth.signOut(); } montrer('connexion'); });
+
+  // ===== Événements =====
+  ['f-categorie', 'f-statut'].forEach(function (id) { $(id).addEventListener('change', function () { page = 0; charger(); }); });
+  var tempo = null;
+  $('f-recherche').addEventListener('input', function () {
+    clearTimeout(tempo);
+    tempo = setTimeout(function () { page = 0; charger(); }, 350);
+  });
+  $('page-prec').addEventListener('click', function () { if (page > 0) { page--; charger(); } });
+  $('page-suiv').addEventListener('click', function () { page++; charger(); });
+  $('btn-ajouter').addEventListener('click', function () { ouvrirEditeur(null); });
+  $('btn-import').addEventListener('click', function () { msg('imp-msg', '', true); vider($('imp-erreurs')); montrer('import'); });
+  $('ed-annuler').addEventListener('click', function () { montrer('gestion'); });
+  $('ed-enregistrer').addEventListener('click', enregistrer);
+  $('imp-lancer').addEventListener('click', importer);
+  $('imp-retour').addEventListener('click', function () { montrer('gestion'); charger(); });
+
+  ouvrir();
+})();
+</script>
+</body>
+</html>

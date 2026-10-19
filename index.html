@@ -845,12 +845,70 @@
     liste.forEach(function (p) { z.appendChild(carte(p)); });
   }
 
+  // ===== Catalogue paginé =====
+  var PAGE = 24, pageSuivante = 0, plusDispo = false, resultats = [], rechercheId = 0;
+
+  function requeter(page) {
+    var q = db.from('produits').select(COLONNES).eq('disponible', true).order('cree_le', { ascending: false });
+    if (filtre) { q = q.eq('categorie', filtre); }
+    if (terme) { q = q.ilike('nom', '%' + terme.replace(/[%_,()]/g, '') + '%'); }
+    return q.range(page * PAGE, page * PAGE + PAGE - 1);
+  }
+
+  function ajouterAuCache(lot) {
+    lot.forEach(function (p) {
+      if (!produits.some(function (x) { return String(x.id) === String(p.id); })) { produits.push(p); }
+    });
+  }
+
+  function renderResultats() {
+    var z = $('liste-produits');
+    z.textContent = '';
+    if (!resultats.length) { z.textContent = 'Aucun article trouvé.'; return; }
+    resultats.forEach(function (p) { z.appendChild(carte(p)); });
+    if (plusDispo) {
+      var b = el('button', 'btn clair voir-plus', 'Voir plus');
+      b.addEventListener('click', function () { chargerSuite(b); });
+      z.appendChild(b);
+    }
+  }
+
+  async function chargerSuite(bouton) {
+    var id = rechercheId;
+    if (bouton) { bouton.disabled = true; bouton.textContent = 'Chargement…'; }
+    var r = await requeter(pageSuivante);
+    if (id !== rechercheId) { return; }
+    if (r.error) { if (bouton) { bouton.disabled = false; bouton.textContent = 'Voir plus'; } return; }
+    ajouterAuCache(r.data || []);
+    resultats = resultats.concat(r.data || []);
+    pageSuivante++;
+    plusDispo = (r.data || []).length === PAGE;
+    renderResultats();
+  }
+
+  async function lancerRecherche(defiler) {
+    var id = ++rechercheId;
+    resultats = []; pageSuivante = 0; plusDispo = false;
+    if (!db) { $('liste-produits').textContent = 'Catalogue indisponible pour le moment.'; return; }
+    $('liste-produits').textContent = 'Chargement…';
+    var r = await requeter(0);
+    if (id !== rechercheId) { return; }
+    if (r.error) { $('liste-produits').textContent = 'Impossible de charger les articles.'; return; }
+    ajouterAuCache(r.data || []);
+    resultats = r.data || [];
+    pageSuivante = 1;
+    plusDispo = resultats.length === PAGE;
+    renderResultats();
+    if (defiler) { $('resultats').scrollIntoView({ behavior: 'smooth' }); }
+  }
+
   function afficherProduits(defiler) {
     var actif = !!(filtre || terme);
     $('resultats').style.display = actif ? 'block' : 'none';
     $('bandes').style.display = actif ? 'none' : 'block';
     if (actif) {
-      var info = $('filtre-info'); info.textContent = '';
+      var info = $('filtre-info');
+      info.textContent = '';
       var parts = [];
       if (filtre) parts.push(NOMS_CAT[filtre]);
       if (terme) parts.push('« ' + terme + ' »');
@@ -858,14 +916,7 @@
       var a = el('a', 'lien-filtre', 'Tout afficher');
       a.addEventListener('click', function () { filtre = null; terme = ''; $('champ-recherche').value = ''; afficherProduits(); });
       info.appendChild(a);
-      var liste = produits.filter(function (p) {
-        var cat = (NOMS_CAT[p.categorie] || '').toLowerCase();
-        return (!filtre || p.categorie === filtre) && (!terme || p.nom.toLowerCase().indexOf(terme) >= 0 || cat.indexOf(terme) >= 0);
-      });
-      var z = $('liste-produits'); z.textContent = '';
-      if (!liste.length) { z.textContent = 'Aucun article trouvé.'; }
-      liste.forEach(function (p) { z.appendChild(carte(p)); });
-      if (defiler) { $('resultats').scrollIntoView({ behavior: 'smooth' }); }
+      lancerRecherche(defiler);
       return;
     }
     if (!produits.length) { $('rail-nouveautes').textContent = 'Les produits arrivent bientôt.'; return; }
@@ -877,26 +928,36 @@
     remplir('rail-ventes', v); remplir('rail-promos', promo);
   }
 
+  // ===== Chargement des articles manquants (panier, favoris) =====
+  var tentes = {};
+  var COLONNES = 'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs,description,matieres,images,couleurs_images,stock,seuil_stock';
+
+  function idsManquants(ids) {
+    var connus = {};
+    produits.forEach(function (p) { connus[String(p.id)] = true; });
+    return ids.map(String).filter(function (id) { return !connus[id] && !tentes[id]; });
+  }
+
+  async function chargerProduitsIds(ids) {
+    ids = ids.map(String);
+    ids.forEach(function (id) { tentes[id] = true; });
+    if (!db || !ids.length) { return; }
+    var r = await db.from('produits').select(COLONNES).in('id', ids);
+    if (!r.error) { ajouterAuCache(r.data || []); }
+  }
+
   async function chargerProduits() {
     if (!db) { $('rail-nouveautes').textContent = 'Catalogue indisponible pour le moment.'; return; }
-    var colonnes = [
-      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs,description,matieres,images,couleurs_images',
-      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs,description',
-      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix,tailles,couleurs',
-      'id,nom,prix,categorie,image_url,meilleure_vente,en_promo,ancien_prix',
-      'id,nom,prix,categorie,image_url'
-    ];
-    var r = null;
-    for (var i = 0; i < colonnes.length; i++) {
-      r = await db.from('produits').select(colonnes[i]).order('cree_le', { ascending: false });
-      if (!r.error) { break; }
-    }
+    var r = await requeter(0);
     if (r.error) { $('rail-nouveautes').textContent = 'Impossible de charger les produits.'; return; }
-    produits = r.data || [];
-    afficherProduits(); majBadge();
+    ajouterAuCache(r.data || []);
+    afficherProduits();
+    majBadge();
   }
 
   function dessinerPanier() {
+    var manquants = idsManquants(Object.keys(panier).map(function (k) { return String(k).split('|')[0]; }));
+    if (manquants.length) { chargerProduitsIds(manquants).then(dessinerPanier); }
     var zl = $('panier-lignes'), zb = $('panier-bas');
     zl.textContent = ''; zb.textContent = '';
     var L = lignes();
@@ -1636,6 +1697,8 @@
 
   function ouvrirFavoris() {
     if (!utilisateur) { ouvrir(); return; }
+    var manquantsFav = idsManquants(Object.keys(favoris));
+    if (manquantsFav.length) { chargerProduitsIds(manquantsFav).then(ouvrirFavoris); return; }
     var c = $('favoris-corps'); c.textContent = '';
     var items = produits.filter(function (p) { return favori(p.id); });
     if (!items.length) {
